@@ -1,0 +1,46 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: posts-service
+  datasource:
+    # escapeSyntaxCallMode=callIfNoReturn makes the JDBC {call ...} escape emit
+    # CALL for the PL/pgSQL PROCEDUREs (sp_register_like / sp_remove_like).
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/socialdb?escapeSyntaxCallMode=callIfNoReturn}
+    username: ${SPRING_DATASOURCE_USERNAME:pulse}
+    password: ${SPRING_DATASOURCE_PASSWORD:pulse}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: posts
+  flyway:
+    schemas: posts
+    default-schema: posts
+    create-schemas: true
+
+security:
+  jwt:
+    # Must match auth-service's secret: tokens are issued there, validated here.
+    secret: ${JWT_SECRET:pulse-dev-secret-change-me-0123456789abcdef}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+springdoc:
+  swagger-ui:
+    path: /docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.pulse.posts: INFO
