@@ -1,0 +1,68 @@
+<section class="screen container feed">
+  <header class="feed-head">
+    <h1>Publicaciones</h1>
+    <p class="feed-sub">Lo que comparten otras personas, en vivo</p>
+  </header>
+
+  @if (store.loading()) {
+    @for (i of skeletons; track i) {
+      <article class="card post-card" aria-hidden="true">
+        <div class="post-head">
+          <span class="skeleton sk-avatar"></span>
+          <div class="sk-lines">
+            <span class="skeleton sk-line w-32"></span>
+            <span class="skeleton sk-line w-20"></span>
+          </div>
+        </div>
+        <span class="skeleton sk-line w-92"></span>
+        <span class="skeleton sk-line w-64"></span>
+      </article>
+    }
+  } @else if (store.isEmpty()) {
+    <div class="card empty">
+      <p class="empty-title">Aún no hay publicaciones de otras personas</p>
+      <p class="empty-sub">Rompe el silencio: crea la primera publicación y aparecerá en el feed de los demás.</p>
+      <a routerLink="/crear" class="btn btn-primary">Crear publicación</a>
+    </div>
+  } @else {
+    @for (post of store.posts(); track post.id) {
+      <article class="card post-card">
+        <div class="post-head">
+          <span class="avatar" [ngStyle]="avatarStyle(post.authorAlias)">{{ initialOf(post.authorAlias) }}</span>
+          <div class="post-meta">
+            <span class="post-alias">&#64;{{ post.authorAlias }}</span>
+            <time [attr.datetime]="post.publishedAt">{{ post.publishedAt | timeAgo }}</time>
+          </div>
+        </div>
+
+        <p class="post-message">{{ post.message }}</p>
+
+        <div class="post-actions">
+          <button
+            type="button"
+            class="like-btn"
+            [class.liked]="post.likedByMe"
+            (click)="toggleLike(post)"
+            [attr.aria-pressed]="post.likedByMe"
+            [attr.aria-label]="post.likedByMe ? 'Quitar like' : 'Dar like'"
+          >
+            <span class="heart-wrap">
+              <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 21s-7.5-4.7-10-9.3C.5 8 2.6 4.5 6.2 4.5c2.2 0 3.9 1.2 4.8 2.9.9-1.7 2.6-2.9 4.8-2.9 3.6 0 5.7 3.5 4.2 7.2C19.5 16.3 12 21 12 21Z"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              @if (post.likedByMe) {
+                <span class="burst" aria-hidden="true"></span>
+              }
+            </span>
+            <span class="like-count" [class.pulse-count]="pulsing().has(post.id)">{{ post.likeCount }}</span>
+          </button>
+        </div>
+      </article>
+    }
+  }
+</section>

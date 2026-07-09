@@ -1,0 +1,38 @@
+@if (auth.isAuthenticated()) {
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a routerLink="/publicaciones" class="brand" aria-label="Pulse — inicio">
+        <span class="wordmark">Pulse</span>
+        <span
+          class="live-dot"
+          [class.off]="!ws.connected()"
+          [title]="ws.connected() ? 'Tiempo real conectado' : 'Reconectando…'"
+        ></span>
+      </a>
+
+      <nav class="topnav" aria-label="Principal">
+        <a routerLink="/publicaciones" routerLinkActive="active">Publicaciones</a>
+        <a routerLink="/crear" routerLinkActive="active">Crear</a>
+      </nav>
+
+      <div class="topbar-right">
+        <a routerLink="/perfil" routerLinkActive="active" class="user-chip" title="Ver perfil">
+          <span class="avatar avatar-sm" [ngStyle]="avatarStyle(auth.alias())">{{ initialOf(auth.alias()) }}</span>
+          <span class="chip-alias">&#64;{{ auth.alias() }}</span>
+        </a>
+        <button class="btn-icon" (click)="logout()" title="Cerrar sesión" aria-label="Cerrar sesión">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="m16 17 5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+}
+
+<main>
+  <router-outlet />
+</main>
+
+<app-toasts />

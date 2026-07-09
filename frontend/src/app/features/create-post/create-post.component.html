@@ -1,0 +1,41 @@
+<section class="screen container-narrow create">
+  <header class="create-head">
+    <h1>Crear publicación</h1>
+    <p class="create-sub">La fecha de publicación se asigna automáticamente al guardar.</p>
+  </header>
+
+  <form class="card create-card" (ngSubmit)="submit()" novalidate>
+    <div class="field">
+      <label for="message">Mensaje</label>
+      <textarea
+        id="message"
+        rows="5"
+        [formControl]="message"
+        [attr.maxlength]="maxLength"
+        placeholder="¿Qué está pasando?"
+        [attr.aria-invalid]="showError"
+      ></textarea>
+      <div class="meta-row">
+        @if (showError) {
+          <span class="field-error">El mensaje es obligatorio</span>
+        } @else {
+          <span></span>
+        }
+        <span class="counter" [class.low]="remaining < 50">{{ remaining }}</span>
+      </div>
+    </div>
+
+    <button
+      class="btn btn-primary"
+      type="submit"
+      [disabled]="store.creating() || message.value.trim().length === 0"
+    >
+      @if (store.creating()) {
+        <span class="spinner" aria-hidden="true"></span>
+        Publicando…
+      } @else {
+        Publicar
+      }
+    </button>
+  </form>
+</section>

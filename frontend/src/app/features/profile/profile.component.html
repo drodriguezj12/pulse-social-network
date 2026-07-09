@@ -1,0 +1,38 @@
+<section class="screen container-narrow profile">
+  <h1>Mi perfil</h1>
+
+  @if (auth.user(); as user) {
+    <div class="card profile-card">
+      <div class="profile-top">
+        <span class="avatar avatar-lg" [ngStyle]="avatarStyle(user.alias)">{{ initialOf(user.alias) }}</span>
+        <div class="identity">
+          <h2>{{ user.firstName }} {{ user.lastName }}</h2>
+          <span class="alias">&#64;{{ user.alias }}</span>
+        </div>
+      </div>
+
+      <dl class="profile-data">
+        <div class="row">
+          <dt>Nombres</dt>
+          <dd>{{ user.firstName }}</dd>
+        </div>
+        <div class="row">
+          <dt>Apellidos</dt>
+          <dd>{{ user.lastName }}</dd>
+        </div>
+        <div class="row">
+          <dt>Fecha de nacimiento</dt>
+          <dd>{{ user.birthDate | date: 'longDate' }}</dd>
+        </div>
+        <div class="row">
+          <dt>Alias</dt>
+          <dd>&#64;{{ user.alias }}</dd>
+        </div>
+        <div class="row">
+          <dt>Usuario</dt>
+          <dd>{{ user.username }}</dd>
+        </div>
+      </dl>
+    </div>
+  }
+</section>

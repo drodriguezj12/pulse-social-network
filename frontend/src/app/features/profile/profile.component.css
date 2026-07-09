@@ -1,0 +1,30 @@
+.profile { display: grid; gap: 1.25rem; }
+
+.profile-card { padding: 1.75rem; display: grid; gap: 1.5rem; }
+
+.profile-top { display: flex; align-items: center; gap: 1rem; }
+
+.avatar-lg { width: 4rem; height: 4rem; font-size: 1.5rem; }
+
+.identity { display: grid; gap: 0.125rem; }
+.alias { color: var(--primary); font-weight: 500; font-size: 0.9375rem; }
+
+.profile-data {
+  margin: 0;
+  display: grid;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--line);
+}
+
+dt { color: var(--muted); font-size: 0.9375rem; }
+dd { margin: 0; font-weight: 500; }
+
+@media (max-width: 480px) {
+  .row { grid-template-columns: 1fr; gap: 0.125rem; }
+}

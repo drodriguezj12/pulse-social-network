@@ -1,0 +1,278 @@
+/* ============================================================
+   Pulse — design system (see DESIGN.md)
+   Dark pure-neutral surfaces; rose = the live signal.
+   ============================================================ */
+
+:root {
+  /* Color */
+  --bg: oklch(0.11 0 0);
+  --surface: oklch(0.155 0 0);
+  --surface-2: oklch(0.19 0 0);
+  --ink: oklch(0.93 0.008 340);
+  --muted: oklch(0.68 0.012 340);
+  --primary: oklch(0.65 0.21 345);
+  --primary-strong: oklch(0.58 0.21 345);
+  --primary-soft: oklch(0.65 0.21 345 / 0.14);
+  --accent: oklch(0.82 0.14 85);
+  --danger: oklch(0.62 0.19 25);
+  --danger-soft: oklch(0.62 0.19 25 / 0.14);
+  --success: oklch(0.72 0.17 150);
+  --line: oklch(0.26 0 0);
+
+  /* Type */
+  --font-ui: 'Inter Variable', system-ui, -apple-system, sans-serif;
+  --font-brand: 'Fraunces Variable', Georgia, serif;
+
+  /* Shape */
+  --radius-card: 12px;
+  --radius-control: 10px;
+  --radius-pill: 999px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 150ms;
+  --t-base: 200ms;
+
+  /* Z-scale */
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-backdrop: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+}
+
+/* ---------- Reset & base ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { color-scheme: dark; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
+p { margin: 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.wordmark {
+  font-family: var(--font-brand);
+  font-style: italic;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover:not(:disabled) { background: var(--primary-strong); }
+
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 0.5rem;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  display: inline-flex;
+  transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+}
+.btn-icon:hover { background: var(--surface-2); color: var(--ink); }
+
+/* Loading spinner inside buttons */
+.spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid oklch(1 0 0 / 0.35);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Forms ---------- */
+
+.field { display: grid; gap: 0.375rem; }
+.field label { font-size: 0.875rem; font-weight: 500; color: var(--muted); }
+
+.field input,
+.field textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0.625rem 0.875rem;
+  transition: border-color var(--t-fast) var(--ease-out);
+}
+.field input::placeholder,
+.field textarea::placeholder { color: var(--muted); }
+.field input:focus-visible,
+.field textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: 0; border-color: transparent; }
+.field input[aria-invalid="true"],
+.field textarea[aria-invalid="true"] { border-color: var(--danger); }
+
+.field-error { color: var(--danger); font-size: 0.8125rem; }
+
+/* ---------- Cards & layout ---------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.container { width: min(100% - 2rem, 640px); margin-inline: auto; }
+.container-narrow { width: min(100% - 2rem, 480px); margin-inline: auto; }
+
+/* ---------- Avatar ---------- */
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 1rem;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* ---------- Skeletons ---------- */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.05), transparent);
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+/* ---------- Live signal system ---------- */
+
+/* Heartbeat dot in the header while the WebSocket is connected */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: heartbeat 2s var(--ease-out) infinite;
+}
+.live-dot.off { background: var(--muted); animation: none; }
+
+@keyframes heartbeat {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.72 0.17 150 / 0.5); }
+  50% { box-shadow: 0 0 0 5px oklch(0.72 0.17 150 / 0); }
+}
+
+/* Counter pulse when a like event lands over the WebSocket */
+@keyframes count-pulse {
+  0% { transform: scale(1); color: var(--ink); }
+  35% { transform: scale(1.35); color: var(--primary); text-shadow: 0 0 14px oklch(0.65 0.21 345 / 0.65); }
+  100% { transform: scale(1); }
+}
+.pulse-count { display: inline-block; animation: count-pulse 450ms var(--ease-out); }
+
+/* Like button burst ring */
+@keyframes burst-ring {
+  0% { transform: scale(0.4); opacity: 0.9; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+/* ---------- Screen entry ---------- */
+
+.screen { animation: screen-in 180ms var(--ease-out); }
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- Toasts ---------- */
+
+.toast-stack {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  display: grid;
+  gap: 0.5rem;
+  z-index: var(--z-toast);
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 0.75rem 1rem;
+  max-width: 22rem;
+  font-size: 0.9375rem;
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.4);
+  animation: toast-in var(--t-base) var(--ease-out);
+}
+.toast .icon { flex-shrink: 0; }
+.toast.success .icon { color: var(--success); }
+.toast.error .icon { color: var(--danger); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot,
+  .pulse-count,
+  .screen,
+  .toast,
+  .skeleton::after { animation: none !important; }
+  .btn, .btn-icon { transition: none; }
+  * { scroll-behavior: auto !important; }
+}

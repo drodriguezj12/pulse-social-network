@@ -1,0 +1,26 @@
+.create { display: grid; gap: 1.25rem; }
+
+.create-head { display: grid; gap: 0.125rem; }
+.create-sub { color: var(--muted); font-size: 0.9375rem; }
+
+.create-card {
+  padding: 1.5rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+textarea { resize: vertical; min-height: 8rem; }
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 1.25rem;
+}
+
+.counter {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+.counter.low { color: var(--accent); }

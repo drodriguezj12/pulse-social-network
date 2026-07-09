@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pulse-postgres
+    environment:
+      POSTGRES_DB: socialdb
+      POSTGRES_USER: pulse
+      POSTGRES_PASSWORD: pulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse -d socialdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  auth-service:
+    build: ./backend/auth-service
+    container_name: pulse-auth-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/socialdb
+      SPRING_DATASOURCE_USERNAME: pulse
+      SPRING_DATASOURCE_PASSWORD: pulse
+      JWT_SECRET: ${JWT_SECRET:-pulse-dev-secret-change-me-0123456789abcdef}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+  posts-service:
+    build: ./backend/posts-service
+    container_name: pulse-posts-service
+    environment:
+      # escapeSyntaxCallMode=callIfNoReturn: JDBC {call ...} must emit CALL for
+      # the PL/pgSQL stored procedures (sp_register_like / sp_remove_like).
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/socialdb?escapeSyntaxCallMode=callIfNoReturn
+      SPRING_DATASOURCE_USERNAME: pulse
+      SPRING_DATASOURCE_PASSWORD: pulse
+      JWT_SECRET: ${JWT_SECRET:-pulse-dev-secret-change-me-0123456789abcdef}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+  frontend:
+    build: ./frontend
+    container_name: pulse-frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      posts-service:
+        condition: service_healthy
+
+volumes:
+  pgdata:

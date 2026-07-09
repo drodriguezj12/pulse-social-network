@@ -1,0 +1,63 @@
+<div class="login-screen screen">
+  <div class="glow" aria-hidden="true"></div>
+
+  <section class="login-card card">
+    <header class="login-head">
+      <span class="wordmark brand-lg">Pulse</span>
+      <p class="tagline">Publicaciones y likes en tiempo real</p>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="field">
+        <label for="username">Usuario</label>
+        <input
+          id="username"
+          formControlName="username"
+          autocomplete="username"
+          placeholder="mariana"
+          [attr.aria-invalid]="invalid('username')"
+        />
+        @if (invalid('username')) {
+          <span class="field-error">El usuario es obligatorio</span>
+        }
+      </div>
+
+      <div class="field">
+        <label for="password">Clave</label>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          autocomplete="current-password"
+          placeholder="••••••••••"
+          [attr.aria-invalid]="invalid('password')"
+        />
+        @if (invalid('password')) {
+          <span class="field-error">La clave es obligatoria</span>
+        }
+      </div>
+
+      @if (auth.error()) {
+        <p class="login-error" role="alert">{{ auth.error() }}</p>
+      }
+
+      <button class="btn btn-primary login-submit" type="submit" [disabled]="auth.loading()">
+        @if (auth.loading()) {
+          <span class="spinner" aria-hidden="true"></span>
+          Ingresando…
+        } @else {
+          Ingresar
+        }
+      </button>
+    </form>
+
+    <footer class="demo-users">
+      <p class="demo-label">Usuarios demo · clave <code>{{ demoPassword }}</code></p>
+      <div class="chips">
+        @for (user of demoUsers; track user) {
+          <button type="button" class="chip" (click)="fill(user)">&#64;{{ user }}</button>
+        }
+      </div>
+    </footer>
+  </section>
+</div>
