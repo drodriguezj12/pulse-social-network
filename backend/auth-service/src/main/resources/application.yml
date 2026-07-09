@@ -1,0 +1,45 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/socialdb}
+    username: ${SPRING_DATASOURCE_USERNAME:pulse}
+    password: ${SPRING_DATASOURCE_PASSWORD:pulse}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: auth
+  flyway:
+    schemas: auth
+    default-schema: auth
+    create-schemas: true
+
+security:
+  jwt:
+    # Shared with posts-service so it can validate tokens on its own.
+    # Override in any non-local environment.
+    secret: ${JWT_SECRET:pulse-dev-secret-change-me-0123456789abcdef}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+springdoc:
+  swagger-ui:
+    path: /docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.pulse.auth: INFO
