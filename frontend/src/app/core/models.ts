@@ -5,6 +5,7 @@ export interface UserProfile {
   lastName: string;
   birthDate: string;
   alias: string;
+  hasAvatar: boolean;
 }
 
 export interface LoginResponse {
@@ -22,6 +23,7 @@ export interface Post {
   publishedAt: string;
   likeCount: number;
   likedByMe: boolean;
+  hasImage: boolean;
 }
 
 export interface LikeResponse {

@@ -19,4 +19,14 @@ export class AuthApiService {
   me(): Observable<UserProfile> {
     return this.http.get<UserProfile>('/users/me');
   }
+
+  updateProfile(firstName: string, lastName: string): Observable<UserProfile> {
+    return this.http.put<UserProfile>('/users/me', { firstName, lastName });
+  }
+
+  uploadAvatar(image: File): Observable<UserProfile> {
+    const form = new FormData();
+    form.append('image', image);
+    return this.http.put<UserProfile>('/users/me/avatar', form);
+  }
 }

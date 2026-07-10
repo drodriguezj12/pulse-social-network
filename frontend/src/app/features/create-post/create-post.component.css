@@ -24,3 +24,32 @@ textarea { resize: vertical; min-height: 8rem; }
   font-variant-numeric: tabular-nums;
 }
 .counter.low { color: var(--accent); }
+
+.image-preview {
+  position: relative;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.image-preview img {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+}
+.remove-image {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: oklch(0 0 0 / 0.55);
+  color: white;
+}
+.remove-image:hover { background: oklch(0 0 0 / 0.75); color: white; }
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+.attach { cursor: pointer; }

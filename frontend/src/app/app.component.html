@@ -17,7 +17,14 @@
 
       <div class="topbar-right">
         <a routerLink="/perfil" routerLinkActive="active" class="user-chip" title="Ver perfil">
-          <span class="avatar avatar-sm" [ngStyle]="avatarStyle(auth.alias())">{{ initialOf(auth.alias()) }}</span>
+          @if (auth.user(); as user) {
+            <app-avatar
+              [userId]="user.id"
+              [alias]="user.alias"
+              [bust]="auth.avatarVersion()"
+              style="--av-size: 1.75rem"
+            />
+          }
           <span class="chip-alias">&#64;{{ auth.alias() }}</span>
         </a>
         <button class="btn-icon" (click)="logout()" title="Cerrar sesión" aria-label="Cerrar sesión">

@@ -16,6 +16,24 @@
 
 .post-message { font-size: 1rem; max-width: 65ch; overflow-wrap: break-word; }
 
+.post-image {
+  display: block;
+  width: 100%;
+  max-height: 480px;
+  object-fit: cover;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line);
+}
+
+/* Post that just arrived over the WebSocket slides into the feed */
+.post-new {
+  animation: post-in 600ms var(--ease-out);
+}
+@keyframes post-in {
+  from { opacity: 0; transform: translateY(-14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
 .post-actions {
   border-top: 1px solid var(--line);
   padding-top: 0.625rem;
@@ -83,4 +101,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .burst { animation: none; opacity: 0; }
+  .post-new { animation: none; }
 }

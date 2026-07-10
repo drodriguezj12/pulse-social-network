@@ -12,7 +12,13 @@ export class PostsApiService {
     return this.http.get<Post[]>('/posts');
   }
 
-  create(message: string): Observable<Post> {
+  create(message: string, image?: File | null): Observable<Post> {
+    if (image) {
+      const form = new FormData();
+      form.append('message', message);
+      form.append('image', image);
+      return this.http.post<Post>('/posts', form);
+    }
     return this.http.post<Post>('/posts', { message });
   }
 

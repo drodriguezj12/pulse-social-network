@@ -19,6 +19,7 @@ describe('PostsStore', () => {
     publishedAt: new Date().toISOString(),
     likeCount: 2,
     likedByMe: false,
+    hasImage: false,
   };
 
   beforeEach(() => {
@@ -82,6 +83,21 @@ describe('PostsStore', () => {
     expect(store.posts()[0].likeCount).toBe(2);
     expect(store.posts()[0].likedByMe).toBeFalse();
     expect(toasts.error).toHaveBeenCalled();
+  });
+
+  it('applyNewPost prepends the broadcast post and ignores duplicates', async () => {
+    api.feed.and.returnValue(of([post]));
+    await store.loadFeed();
+    const incoming: Post = { ...post, id: 'p2', message: 'nuevo en vivo' };
+
+    store.applyNewPost(incoming);
+
+    expect(store.posts().length).toBe(2);
+    expect(store.posts()[0].id).toBe('p2');
+    expect(store.lastNewPost()?.postId).toBe('p2');
+
+    store.applyNewPost(incoming); // duplicate frame
+    expect(store.posts().length).toBe(2);
   });
 
   it('createPost reports success and failure through toasts', async () => {

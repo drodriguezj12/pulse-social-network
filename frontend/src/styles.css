@@ -5,26 +5,33 @@
 
 :root {
   /* Color */
-  --bg: oklch(0.11 0 0);
+  --bg: oklch(0.13 0.015 300);
   --surface: oklch(0.155 0 0);
-  --surface-2: oklch(0.19 0 0);
-  --ink: oklch(0.93 0.008 340);
-  --muted: oklch(0.68 0.012 340);
+  --surface-2: oklch(1 0 0 / 0.07);
+  --ink: oklch(0.94 0.008 340);
+  --muted: oklch(0.72 0.015 330);
   --primary: oklch(0.65 0.21 345);
   --primary-strong: oklch(0.58 0.21 345);
-  --primary-soft: oklch(0.65 0.21 345 / 0.14);
+  --primary-soft: oklch(0.65 0.21 345 / 0.16);
   --accent: oklch(0.82 0.14 85);
   --danger: oklch(0.62 0.19 25);
   --danger-soft: oklch(0.62 0.19 25 / 0.14);
   --success: oklch(0.72 0.17 150);
-  --line: oklch(0.26 0 0);
+  --line: oklch(1 0 0 / 0.12);
+
+  /* Glassmorphism */
+  --glass-bg: oklch(1 0 0 / 0.055);
+  --glass-bg-strong: oklch(1 0 0 / 0.09);
+  --glass-border: oklch(1 0 0 / 0.13);
+  --glass-highlight: inset 0 1px 0 oklch(1 0 0 / 0.09);
+  --glass-shadow: 0 8px 32px oklch(0 0 0 / 0.35);
 
   /* Type */
   --font-ui: 'Inter Variable', system-ui, -apple-system, sans-serif;
   --font-brand: 'Fraunces Variable', Georgia, serif;
 
   /* Shape */
-  --radius-card: 12px;
+  --radius-card: 16px;
   --radius-control: 10px;
   --radius-pill: 999px;
 
@@ -55,6 +62,25 @@ body {
   font-size: 1rem;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Aurora backdrop: slow-drifting color fields the glass surfaces sit on. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 32% at 18% 22%, oklch(0.45 0.19 345 / 0.4), transparent 70%),
+    radial-gradient(32% 36% at 82% 16%, oklch(0.42 0.17 290 / 0.34), transparent 70%),
+    radial-gradient(42% 42% at 62% 88%, oklch(0.42 0.15 230 / 0.28), transparent 70%),
+    radial-gradient(24% 24% at 40% 55%, oklch(0.5 0.13 45 / 0.14), transparent 70%);
+  filter: blur(70px);
+  animation: aurora-drift 26s var(--ease-out) infinite alternate;
+}
+@keyframes aurora-drift {
+  to { transform: translate(-3.5%, 3%) rotate(2deg) scale(1.07); }
 }
 
 h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
@@ -153,10 +179,14 @@ a:hover { text-decoration: underline; }
 
 /* ---------- Cards & layout ---------- */
 
+/* Glass card: the core material of the UI */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--glass-bg);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
 }
 
 .container { width: min(100% - 2rem, 640px); margin-inline: auto; }
@@ -248,13 +278,15 @@ a:hover { text-decoration: underline; }
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
   padding: 0.75rem 1rem;
   max-width: 22rem;
   font-size: 0.9375rem;
-  box-shadow: 0 8px 24px oklch(0 0 0 / 0.4);
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
   animation: toast-in var(--t-base) var(--ease-out);
 }
 .toast .icon { flex-shrink: 0; }
@@ -268,6 +300,7 @@ a:hover { text-decoration: underline; }
 /* ---------- Reduced motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
+  body::before,
   .live-dot,
   .pulse-count,
   .screen,

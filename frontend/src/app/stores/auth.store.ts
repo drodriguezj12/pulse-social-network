@@ -18,7 +18,10 @@ interface AuthState {
   user: UserProfile | null;
   token: string | null;
   loading: boolean;
+  saving: boolean;
   error: string | null;
+  /** Bumped after an avatar upload so img URLs skip the browser cache. */
+  avatarVersion: number;
 }
 
 const TOKEN_KEY = 'pulse.token';
@@ -31,7 +34,14 @@ const USER_KEY = 'pulse.user';
  */
 export const AuthStore = signalStore(
   { providedIn: 'root' },
-  withState<AuthState>({ user: null, token: null, loading: false, error: null }),
+  withState<AuthState>({
+    user: null,
+    token: null,
+    loading: false,
+    saving: false,
+    error: null,
+    avatarVersion: 0,
+  }),
   withComputed(({ token, user }) => ({
     isAuthenticated: computed(() => token() !== null),
     alias: computed(() => user()?.alias ?? ''),
@@ -65,6 +75,35 @@ export const AuthStore = signalStore(
           patchState(store, { user });
         } catch {
           // A 401 here is handled globally by the interceptor.
+        }
+      },
+
+      /** Edits display names; username and alias stay immutable by design. */
+      async updateProfile(firstName: string, lastName: string): Promise<boolean> {
+        patchState(store, { saving: true });
+        try {
+          const user = await firstValueFrom(api.updateProfile(firstName, lastName));
+          localStorage.setItem(USER_KEY, JSON.stringify(user));
+          patchState(store, { user, saving: false });
+          toasts.success('Perfil actualizado');
+          return true;
+        } catch (e) {
+          patchState(store, { saving: false });
+          toasts.error(httpMessage(e, 'No se pudo actualizar el perfil'));
+          return false;
+        }
+      },
+
+      async uploadAvatar(image: File): Promise<void> {
+        patchState(store, { saving: true });
+        try {
+          const user = await firstValueFrom(api.uploadAvatar(image));
+          localStorage.setItem(USER_KEY, JSON.stringify(user));
+          patchState(store, { user, saving: false, avatarVersion: Date.now() });
+          toasts.success('Foto de perfil actualizada');
+        } catch (e) {
+          patchState(store, { saving: false });
+          toasts.error(httpMessage(e, 'No se pudo subir la imagen'));
         }
       },
 

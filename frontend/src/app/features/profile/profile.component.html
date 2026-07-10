@@ -4,35 +4,84 @@
   @if (auth.user(); as user) {
     <div class="card profile-card">
       <div class="profile-top">
-        <span class="avatar avatar-lg" [ngStyle]="avatarStyle(user.alias)">{{ initialOf(user.alias) }}</span>
+        <label class="avatar-edit" title="Cambiar foto de perfil">
+          <app-avatar
+            [userId]="user.id"
+            [alias]="user.alias"
+            [bust]="auth.avatarVersion()"
+            style="--av-size: 4.5rem"
+          />
+          <span class="avatar-overlay" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M4 8h2.5l1.5-2.5h8L17.5 8H20a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="12" cy="13.5" r="3.2" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </span>
+          <input type="file" accept="image/jpeg,image/png,image/webp" (change)="onAvatarSelected($event)" hidden />
+        </label>
+
         <div class="identity">
           <h2>{{ user.firstName }} {{ user.lastName }}</h2>
           <span class="alias">&#64;{{ user.alias }}</span>
         </div>
+
+        @if (!editing()) {
+          <button type="button" class="btn btn-ghost edit-btn" (click)="startEditing()">Editar</button>
+        }
       </div>
 
-      <dl class="profile-data">
-        <div class="row">
-          <dt>Nombres</dt>
-          <dd>{{ user.firstName }}</dd>
-        </div>
-        <div class="row">
-          <dt>Apellidos</dt>
-          <dd>{{ user.lastName }}</dd>
-        </div>
-        <div class="row">
-          <dt>Fecha de nacimiento</dt>
-          <dd>{{ user.birthDate | date: 'longDate' }}</dd>
-        </div>
-        <div class="row">
-          <dt>Alias</dt>
-          <dd>&#64;{{ user.alias }}</dd>
-        </div>
-        <div class="row">
-          <dt>Usuario</dt>
-          <dd>{{ user.username }}</dd>
-        </div>
-      </dl>
+      @if (editing()) {
+        <form class="edit-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+          <div class="field">
+            <label for="firstName">Nombres</label>
+            <input id="firstName" formControlName="firstName" [attr.aria-invalid]="invalid('firstName')" />
+            @if (invalid('firstName')) {
+              <span class="field-error">Los nombres son obligatorios</span>
+            }
+          </div>
+          <div class="field">
+            <label for="lastName">Apellidos</label>
+            <input id="lastName" formControlName="lastName" [attr.aria-invalid]="invalid('lastName')" />
+            @if (invalid('lastName')) {
+              <span class="field-error">Los apellidos son obligatorios</span>
+            }
+          </div>
+          <div class="edit-actions">
+            <button type="button" class="btn btn-ghost" (click)="cancelEditing()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" [disabled]="auth.saving()">
+              @if (auth.saving()) {
+                <span class="spinner" aria-hidden="true"></span>
+                Guardando…
+              } @else {
+                Guardar
+              }
+            </button>
+          </div>
+        </form>
+      } @else {
+        <dl class="profile-data">
+          <div class="row">
+            <dt>Nombres</dt>
+            <dd>{{ user.firstName }}</dd>
+          </div>
+          <div class="row">
+            <dt>Apellidos</dt>
+            <dd>{{ user.lastName }}</dd>
+          </div>
+          <div class="row">
+            <dt>Fecha de nacimiento</dt>
+            <dd>{{ user.birthDate | date: 'longDate' }}</dd>
+          </div>
+          <div class="row">
+            <dt>Alias</dt>
+            <dd>&#64;{{ user.alias }}</dd>
+          </div>
+          <div class="row">
+            <dt>Usuario</dt>
+            <dd>{{ user.username }}</dd>
+          </div>
+        </dl>
+      }
     </div>
   }
 </section>

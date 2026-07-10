@@ -26,9 +26,9 @@
     </div>
   } @else {
     @for (post of store.posts(); track post.id) {
-      <article class="card post-card">
+      <article class="card post-card" [class.post-new]="entering().has(post.id)">
         <div class="post-head">
-          <span class="avatar" [ngStyle]="avatarStyle(post.authorAlias)">{{ initialOf(post.authorAlias) }}</span>
+          <app-avatar [userId]="post.authorId" [alias]="post.authorAlias" />
           <div class="post-meta">
             <span class="post-alias">&#64;{{ post.authorAlias }}</span>
             <time [attr.datetime]="post.publishedAt">{{ post.publishedAt | timeAgo }}</time>
@@ -36,6 +36,15 @@
         </div>
 
         <p class="post-message">{{ post.message }}</p>
+
+        @if (post.hasImage) {
+          <img
+            class="post-image"
+            [src]="'/posts/' + post.id + '/image'"
+            alt="Imagen de la publicación de @{{ post.authorAlias }}"
+            loading="lazy"
+          />
+        }
 
         <div class="post-actions">
           <button

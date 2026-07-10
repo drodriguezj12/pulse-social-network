@@ -19,6 +19,8 @@ interface PostsState {
   loaded: boolean;
   /** Last WebSocket like event, sequenced so the feed can pulse the counter. */
   lastEvent: (LikeEvent & { seq: number }) | null;
+  /** Last post that arrived over the WebSocket, so the feed can animate it in. */
+  lastNewPost: { postId: string; seq: number } | null;
 }
 
 /**
@@ -34,6 +36,7 @@ export const PostsStore = signalStore(
     creating: false,
     loaded: false,
     lastEvent: null,
+    lastNewPost: null,
   }),
   withComputed(({ posts, loading, loaded }) => ({
     isEmpty: computed(() => loaded() && !loading() && posts().length === 0),
@@ -60,10 +63,10 @@ export const PostsStore = signalStore(
         }
       },
 
-      async createPost(message: string): Promise<boolean> {
+      async createPost(message: string, image?: File | null): Promise<boolean> {
         patchState(store, { creating: true });
         try {
-          await firstValueFrom(api.create(message));
+          await firstValueFrom(api.create(message, image));
           patchState(store, { creating: false });
           toasts.success('Publicación creada');
           return true;
@@ -92,14 +95,29 @@ export const PostsStore = signalStore(
         }
       },
 
-      /** Entry point for WebSocket broadcasts (see WsService). */
+      /** Entry point for WebSocket like broadcasts (see WsService). */
       applyLikeEvent(event: LikeEvent): void {
         replacePost(event.postId, { likeCount: event.likeCount });
         patchState(store, { lastEvent: { ...event, seq: ++eventSeq } });
       },
 
+      /**
+       * Entry point for WebSocket new-post broadcasts. Prepends the post so
+       * every open feed grows in real time; WsService already filtered out
+       * the current user's own posts (the feed only shows other people's).
+       */
+      applyNewPost(post: Post): void {
+        if (store.posts().some(p => p.id === post.id)) {
+          return; // duplicate frame guard
+        }
+        patchState(store, {
+          posts: [post, ...store.posts()],
+          lastNewPost: { postId: post.id, seq: ++eventSeq },
+        });
+      },
+
       reset(): void {
-        patchState(store, { posts: [], loaded: false, lastEvent: null });
+        patchState(store, { posts: [], loaded: false, lastEvent: null, lastNewPost: null });
       },
     };
   }),
