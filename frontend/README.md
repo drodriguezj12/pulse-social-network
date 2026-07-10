@@ -41,6 +41,17 @@ npm start          # ng serve con proxy (proxy.conf.json) hacia :8081/:8082
 
 Abre http://localhost:4200. El proxy evita CORS también en desarrollo.
 
+## Tests unitarios
+
+```bash
+npm test -- --watch=false --browsers=ChromeHeadless
+```
+
+17 specs (Karma + Jasmine): stores (feed, likes optimistas con reversión,
+eventos del WebSocket), guards de rutas, pipe de tiempo relativo y utilidades.
+Requiere un navegador Chromium; si Chrome no está en la ruta estándar, exporta
+`CHROME_BIN` apuntando a tu binario (Edge y Brave funcionan).
+
 ## Build de producción
 
 ```bash
