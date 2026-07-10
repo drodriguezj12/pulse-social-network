@@ -142,8 +142,7 @@ recibe el broadcast del like.
 │   ├── auth-service/        # JWT + perfil · schema auth · Dockerfile
 │   └── posts-service/       # posts + likes + WS · schema posts · Dockerfile
 ├── frontend/                # Angular 19 + SignalStore + nginx · Dockerfile
-├── README.md                # arquitectura y decisiones técnicas (detallado)
-└── GUION-VIDEO.md           # guion del video demo
+└── README.md                # arquitectura y decisiones técnicas (detallado)
 ```
 
 ## 10. Solución de problemas

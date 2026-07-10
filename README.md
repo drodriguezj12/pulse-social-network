@@ -204,9 +204,7 @@ recibe el broadcast al dar like por REST.
 │   ├── auth-service/         # login JWT + perfil (schema auth)
 │   └── posts-service/        # posts + likes + WebSocket (schema posts)
 ├── frontend/                 # Angular 19 + NgRx SignalStore + nginx
-├── INSTALACION.md            # guía de instalación y explicación (→ PDF)
-├── GUION-VIDEO.md            # guion del video demo (3–5 min)
-└── DEFENSA-TECNICA.md        # preparación de la sustentación
+└── INSTALACION.md / .pdf     # guía de instalación y explicación del proyecto
 ```
 
 ## Autor

@@ -1,7 +1,8 @@
 # Pulse — Frontend (Angular 19)
 
 SPA de la red social Pulse: login, perfil, feed con **likes en tiempo real** y
-creación de publicaciones. Diseño propio "señal en vivo" (ver `../DESIGN.md`).
+creación de publicaciones. Diseño propio "señal en vivo": superficies oscuras
+neutras y un solo color de acento (rosa) reservado para el sistema de likes.
 
 ## Stack
 
