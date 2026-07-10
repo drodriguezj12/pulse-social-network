@@ -1,10 +1,10 @@
-# Pulse — Red social en tiempo real
+# Pulse” Red social en tiempo real
 
-Prueba técnica Full Stack (Angular + Java) · **Java 21 · Spring Boot 3.3 · Angular 19 · PostgreSQL 16 · Docker**
+Prueba tÃ©cnica Full Stack (Angular + Java) Â· **Java 21 Â· Spring Boot 3.3 Â· Angular 19 Â· PostgreSQL 16 Â· Docker**
 
-Pulse es una red social con arquitectura de microservicios: autenticación JWT,
+Pulse es una red social con arquitectura de microservicios: autenticaciÃ³n JWT,
 perfiles con **foto y alias editable**, publicaciones **con imagen opcional**, y
-**tiempo real** vía WebSocket (STOMP): tanto los likes como las publicaciones nuevas
+**tiempo real** vÃ­a WebSocket (STOMP): tanto los likes como las publicaciones nuevas
 aparecen en todos los navegadores conectados sin recargar. Todo el stack se levanta
 con un solo comando de Docker Compose.
 
@@ -33,39 +33,39 @@ flowchart LR
     POSTS -->|"schema posts"| DB
 ```
 
-- **auth-service** (`:8081`): login JWT y perfil. Dueño exclusivo del schema `auth`.
+- **auth-service** (`:8081`): login JWT y perfil. DueÃ±o exclusivo del schema `auth`.
 - **posts-service** (`:8082`): publicaciones, likes (stored procedures PL/pgSQL) y
-  difusión en tiempo real por WebSocket. Dueño exclusivo del schema `posts`.
-- **frontend** (`:4200`): SPA Angular servida por nginx, que además hace proxy de
-  API y WebSocket — un solo origen, sin CORS.
+  difusiÃ³n en tiempo real por WebSocket. DueÃ±o exclusivo del schema `posts`.
+- **frontend** (`:4200`): SPA Angular servida por nginx, que ademÃ¡s hace proxy de
+  API y WebSocket â€” un solo origen, sin CORS.
 - **PostgreSQL**: una instancia, dos schemas independientes (uno por servicio),
   migraciones con Flyway por servicio.
 
-## Ejecución (un comando)
+## EjecuciÃ³n (un comando)
 
-Requisitos: Docker Desktop (o Docker Engine + Compose v2). Nada más — Java, Maven,
+Requisitos: Docker Desktop (o Docker Engine + Compose v2). Nada mÃ¡s â€” Java, Maven,
 Node y Angular solo hacen falta para desarrollo local.
 
 ```bash
 docker compose up --build
 ```
 
-Primer arranque: ~3–6 min (descarga imágenes y dependencias). Cuando termine:
+Primer arranque: ~3â€“6 min (descarga imÃ¡genes y dependencias). Cuando termine:
 
 | Servicio | URL |
 |---|---|
-| **Aplicación (frontend)** | http://localhost:4200 |
+| **AplicaciÃ³n (frontend)** | http://localhost:4200 |
 | Swagger auth-service | http://localhost:8081/docs |
 | Swagger posts-service | http://localhost:8082/docs |
-| Salud / métricas auth | http://localhost:8081/actuator/health · /actuator/metrics |
-| Salud / métricas posts | http://localhost:8082/actuator/health · /actuator/metrics |
+| Salud / mÃ©tricas auth | http://localhost:8081/actuator/health Â· /actuator/metrics |
+| Salud / mÃ©tricas posts | http://localhost:8082/actuator/health Â· /actuator/metrics |
 
-Para detener todo: `docker compose down` (agrega `-v` para borrar también la base de datos).
+Para detener todo: `docker compose down` (agrega `-v` para borrar tambiÃ©n la base de datos).
 
 ## Usuarios demo (seeder)
 
-Al iniciar, `auth-service` crea 5 usuarios (BCrypt) y `posts-service` una publicación
-por usuario. El mismo contenido está en [`db/seed.sql`](db/seed.sql) como entregable.
+Al iniciar, `auth-service` crea 5 usuarios (BCrypt) y `posts-service` una publicaciÃ³n
+por usuario. El mismo contenido estÃ¡ en [`db/seed.sql`](db/seed.sql) como entregable.
 
 | Usuario | Clave | Alias |
 |---|---|---|
@@ -76,12 +76,12 @@ por usuario. El mismo contenido está en [`db/seed.sql`](db/seed.sql) como entre
 | `daniela` | `Pulse2026!` | @danim |
 
 **Demo de tiempo real**: abre http://localhost:4200 en dos navegadores (o una ventana
-normal y una de incógnito), inicia sesión con dos usuarios distintos y da like a una
-publicación — el contador se actualiza en ambos al instante, sin recargar.
+normal y una de incÃ³gnito), inicia sesiÃ³n con dos usuarios distintos y da like a una
+publicaciÃ³n â€” el contador se actualiza en ambos al instante, sin recargar.
 
-## Decisiones técnicas
+## Decisiones tÃ©cnicas
 
-### Login con GET (enunciado) vs POST (buena práctica)
+### Login con GET (enunciado) vs POST (buena prÃ¡ctica)
 El enunciado pide literalmente `login con JWT (GET)`. Se implementaron **ambos**:
 `POST /auth/login` (recomendado: las credenciales viajan en el body) y
 `GET /auth/login` para cumplimiento literal, aceptando credenciales por query params
@@ -89,13 +89,13 @@ o por headers `X-Username` / `X-Password`. Un GET con credenciales en la URL las
 expone en logs de servidores/proxies e historial del navegador; por eso el frontend
 usa el POST y el GET queda documentado en Swagger.
 
-### PROCEDURE vs FUNCTION en PostgreSQL (mínimo 2 PROCEDURE)
+### PROCEDURE vs FUNCTION en PostgreSQL (mÃ­nimo 2 PROCEDURE)
 PostgreSQL distingue `PROCEDURE` (PG11+, se invoca con `CALL`, admite `INOUT`) de
 `FUNCTION` (retorna valores/filas y se usa en consultas). Como retornar result sets
-desde una PROCEDURE es poco práctico, el diseño usa **las tres rutinas** donde cada
-una es idiomática:
+desde una PROCEDURE es poco prÃ¡ctico, el diseÃ±o usa **las tres rutinas** donde cada
+una es idiomÃ¡tica:
 
-| Rutina | Tipo | Invocación desde Java |
+| Rutina | Tipo | InvocaciÃ³n desde Java |
 |---|---|---|
 | `sp_register_like(post, user, INOUT total)` | **PROCEDURE** | `CallableStatement` con `{call ...}` |
 | `sp_remove_like(post, user, INOUT total)` | **PROCEDURE** | `CallableStatement` con `{call ...}` |
@@ -103,29 +103,29 @@ una es idiomática:
 
 Detalle importante: el datasource de posts-service lleva
 `escapeSyntaxCallMode=callIfNoReturn` para que el driver JDBC emita `CALL`
-(procedure) y no `SELECT` (function). La ejecución real de las procedures está
-cubierta por tests de integración.
+(procedure) y no `SELECT` (function). La ejecuciÃ³n real de las procedures estÃ¡
+cubierta por tests de integraciÃ³n.
 
 ### Idempotencia de likes
-Doble garantía: clave primaria compuesta `(post_id, user_id)` en la tabla `likes` +
+Doble garantÃ­a: clave primaria compuesta `(post_id, user_id)` en la tabla `likes` +
 `INSERT ... ON CONFLICT DO NOTHING` dentro de `sp_register_like`. Dar like dos veces
 no duplica y retorna el mismo total.
 
 ### JWT HS256 con secreto compartido
 `auth-service` emite el token; `posts-service` lo valida con el mismo secreto
-(variable de entorno `JWT_SECRET`). Así cada request se autoriza sin llamadas entre
-servicios. En producción se rotaría a RS256 + JWKS; para este alcance sería
-sobre-ingeniería (trade-off documentado).
+(variable de entorno `JWT_SECRET`). AsÃ­ cada request se autoriza sin llamadas entre
+servicios. En producciÃ³n se rotarÃ­a a RS256 + JWKS; para este alcance serÃ­a
+sobre-ingenierÃ­a (trade-off documentado).
 
 ### Sin acoplamiento entre microservicios
 `posts-service` guarda `author_alias` **denormalizado** (tomado del JWT al crear la
-publicación): el feed nunca llama a `auth-service`. No hay FK entre schemas — cada
-servicio es dueño absoluto de sus datos y podría extraerse a su propia base sin
-cambios de código.
+publicaciÃ³n): el feed nunca llama a `auth-service`. No hay FK entre schemas â€” cada
+servicio es dueÃ±o absoluto de sus datos y podrÃ­a extraerse a su propia base sin
+cambios de cÃ³digo.
 
-### WebSocket de solo difusión
+### WebSocket de solo difusiÃ³n
 El handshake de `/ws` es abierto: por ese canal **solo se difunden** totales de likes
-(dato público); toda mutación pasa por REST con JWT. Los clientes se suscriben a
+(dato pÃºblico); toda mutaciÃ³n pasa por REST con JWT. Los clientes se suscriben a
 `/topic/likes` y reciben `{postId, likeCount}`.
 
 ### Monorepo separable
@@ -142,7 +142,7 @@ curl -s -X POST http://localhost:8081/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"mariana","password":"Pulse2026!"}'
 
-# Login GET — cumplimiento literal del enunciado (query params o headers)
+# Login GET â€” cumplimiento literal del enunciado (query params o headers)
 curl -s "http://localhost:8081/auth/login?username=mariana&password=Pulse2026!"
 curl -s http://localhost:8081/auth/login -H "X-Username: mariana" -H "X-Password: Pulse2026!"
 
@@ -155,11 +155,11 @@ curl -s http://localhost:8081/users/me -H "Authorization: Bearer $TOKEN"
 curl -s http://localhost:8081/users/00000000-0000-0000-0000-000000000002 \
   -H "Authorization: Bearer $TOKEN"
 
-# Editar alias del perfil (username y nombre real son inmutables por diseño)
+# Editar alias del perfil (username y nombre real son inmutables por diseÃ±o)
 curl -s -X PUT http://localhost:8081/users/me -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -d '{"alias":"mariana_live"}'
 
-# Subir foto de perfil (JPEG/PNG/WebP, máx 2MB) y leerla (pública, para tags img)
+# Subir foto de perfil (JPEG/PNG/WebP, mÃ¡x 2MB) y leerla (pÃºblica, para tags img)
 curl -s -X PUT http://localhost:8081/users/me/avatar -H "Authorization: Bearer $TOKEN" \
   -F "image=@foto.png;type=image/png"
 curl -s http://localhost:8081/users/00000000-0000-0000-0000-000000000001/avatar -o avatar.png
@@ -168,28 +168,28 @@ curl -s http://localhost:8081/users/00000000-0000-0000-0000-000000000001/avatar 
 ### posts-service (`:8082`)
 
 ```bash
-# Feed: publicaciones de todos los usuarios con total de likes (vía sp_get_posts_with_likes)
+# Feed: publicaciones de todos los usuarios con total de likes (vÃ­a sp_get_posts_with_likes)
 curl -s http://localhost:8082/posts -H "Authorization: Bearer $TOKEN"
 
-# Crear publicación (fecha asignada por el servidor al guardar)
+# Crear publicaciÃ³n (fecha asignada por el servidor al guardar)
 curl -s -X POST http://localhost:8082/posts \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"message":"Hola Pulse!"}'
 
-# Crear publicación CON imagen (multipart; JPEG/PNG/WebP máx 2MB) y leer la imagen
+# Crear publicaciÃ³n CON imagen (multipart; JPEG/PNG/WebP mÃ¡x 2MB) y leer la imagen
 curl -s -X POST http://localhost:8082/posts -H "Authorization: Bearer $TOKEN" \
   -F "message=Con foto" -F "image=@foto.png;type=image/png"
 curl -s http://localhost:8082/posts/{postId}/image -o post.png
 
-# Eliminar una publicaci�n propia (las ajenas responden 403)
+# Eliminar una publicación propia (las ajenas responden 403)
 curl -s -X DELETE http://localhost:8082/posts/{postId} \
   -H "Authorization: Bearer $TOKEN"
 
-# Dar like (idempotente, vía sp_register_like) — difunde el total por WebSocket
+# Dar like (idempotente, vÃ­a sp_register_like) â€” difunde el total por WebSocket
 curl -s -X POST http://localhost:8082/posts/10000000-0000-0000-0000-000000000002/likes \
   -H "Authorization: Bearer $TOKEN"
 
-# Quitar like (vía sp_remove_like)
+# Quitar like (vÃ­a sp_remove_like)
 curl -s -X DELETE http://localhost:8082/posts/10000000-0000-0000-0000-000000000002/likes \
   -H "Authorization: Bearer $TOKEN"
 ```
@@ -197,17 +197,17 @@ curl -s -X DELETE http://localhost:8082/posts/10000000-0000-0000-0000-0000000000
 Errores consistentes en ambos servicios (`@RestControllerAdvice`):
 
 ```json
-{ "timestamp": "…", "status": 404, "error": "Not Found", "message": "Post not found", "path": "/posts/…/likes" }
+{ "timestamp": "â€¦", "status": 404, "error": "Not Found", "message": "Post not found", "path": "/posts/â€¦/likes" }
 ```
 
 ### WebSocket
 
-Endpoint STOMP: `ws://localhost:8082/ws` (o `ws://localhost:4200/ws` vía nginx).
+Endpoint STOMP: `ws://localhost:8082/ws` (o `ws://localhost:4200/ws` vÃ­a nginx).
 
-| Tópico | Payload | Cuándo |
+| TÃ³pico | Payload | CuÃ¡ndo |
 |---|---|---|
-| `/topic/likes` | `{ "postId": "…", "likeCount": 3 }` | Cada like/unlike |
-| `/topic/posts` | la publicación completa (`PostResponse`) | Cada publicación nueva — los feeds abiertos la muestran al instante |
+| `/topic/likes` | `{ "postId": "â€¦", "likeCount": 3 }` | Cada like/unlike |
+| `/topic/posts` | la publicaciÃ³n completa (`PostResponse`) | Cada publicaciÃ³n nueva â€” los feeds abiertos la muestran al instante |
 
 ## Tests
 
@@ -215,31 +215,31 @@ Backend (por servicio, desde `backend/auth-service` o `backend/posts-service`):
 
 ```bash
 mvn test     # unitarios (JUnit 5 + Mockito), sin Docker
-mvn verify   # + integración (Testcontainers + PostgreSQL real; requiere Docker)
+mvn verify   # + integraciÃ³n (Testcontainers + PostgreSQL real; requiere Docker)
 ```
 
-Cobertura de integración destacada: flujo completo de login y perfil, inclusión de
-publicaciones propias en el feed, **ejecución real de las stored procedures**
-(idempotencia del like verificada contra la BD), acumulación de likes entre
-usuarios distintos, ciclo completo de imágenes (subida multipart, lectura pública,
-validación de tipo) y **clientes STOMP reales** que reciben los broadcasts de
+Cobertura de integraciÃ³n destacada: flujo completo de login y perfil, inclusiÃ³n de
+publicaciones propias en el feed, **ejecuciÃ³n real de las stored procedures**
+(idempotencia del like verificada contra la BD), acumulaciÃ³n de likes entre
+usuarios distintos, ciclo completo de imÃ¡genes (subida multipart, lectura pÃºblica,
+validaciÃ³n de tipo) y **clientes STOMP reales** que reciben los broadcasts de
 likes y de publicaciones nuevas.
 
 Frontend: `npm test -- --watch=false --browsers=ChromeHeadless` (18 specs Karma/Jasmine:
-stores, guards, pipes, likes optimistas con reversión y llegada de posts por WebSocket).
+stores, guards, pipes, likes optimistas con reversiÃ³n y llegada de posts por WebSocket).
 
 ## Estructura
 
 ```
-├── docker-compose.yml        # Postgres + 2 microservicios + frontend
-├── db/seed.sql               # usuarios y publicaciones predefinidos (entregable)
-├── backend/
-│   ├── auth-service/         # login JWT + perfil (schema auth)
-│   └── posts-service/        # posts + likes + WebSocket (schema posts)
-├── frontend/                 # Angular 19 + NgRx SignalStore + nginx
-└── INSTALACION.md / .pdf     # guía de instalación y explicación del proyecto
+â”œâ”€â”€ docker-compose.yml        # Postgres + 2 microservicios + frontend
+â”œâ”€â”€ db/seed.sql               # usuarios y publicaciones predefinidos (entregable)
+â”œâ”€â”€ backend/
+â”‚   â”œâ”€â”€ auth-service/         # login JWT + perfil (schema auth)
+â”‚   â””â”€â”€ posts-service/        # posts + likes + WebSocket (schema posts)
+â”œâ”€â”€ frontend/                 # Angular 19 + NgRx SignalStore + nginx
+â””â”€â”€ INSTALACION.md / .pdf     # guÃ­a de instalaciÃ³n y explicaciÃ³n del proyecto
 ```
 
 ## Autor
 
-Daniel Rodriguez — prueba técnica Full Stack para Periferia IT Group.
+Daniel Rodriguez â€” prueba tÃ©cnica Full Stack para Periferia IT Group.
