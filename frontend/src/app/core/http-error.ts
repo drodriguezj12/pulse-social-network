@@ -11,6 +11,9 @@ export function httpMessage(err: unknown, fallback: string): string {
     if (err.status === 0) {
       return 'No hay conexión con el servidor';
     }
+    if (err.status === 413) {
+      return 'La imagen no puede superar 2MB';
+    }
   }
   return fallback;
 }

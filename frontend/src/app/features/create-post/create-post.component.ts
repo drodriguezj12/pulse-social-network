@@ -65,7 +65,8 @@ export class CreatePostComponent {
     this.imagePreview.set(null);
   }
 
-  async submit(): Promise<void> {
+  async submit(event?: SubmitEvent): Promise<void> {
+    event?.preventDefault();
     const value = this.message.value.trim();
     if (!value) {
       this.message.markAsTouched();

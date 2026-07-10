@@ -42,7 +42,7 @@ public class UserService {
     public UserResponse updateProfile(UUID userId, UpdateProfileRequest request) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found"));
-        user.updateNames(request.firstName().trim(), request.lastName().trim());
+        user.updateAlias(request.alias().trim());
         log.info("AUDIT profile_updated userId={} username={}", userId, user.getUsername());
         return UserResponse.from(user, avatarRepository.existsById(userId));
     }

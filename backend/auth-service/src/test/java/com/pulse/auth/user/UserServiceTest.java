@@ -48,8 +48,8 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("updateProfile changes display names only")
-    void updateProfileChangesNames() {
+    @DisplayName("updateProfile changes alias only")
+    void updateProfileChangesAlias() {
         UUID id = UUID.randomUUID();
         UserEntity user = new UserEntity(
                 id, "daniela", "hash", "Daniela", "Mora", LocalDate.of(1996, 9, 30), "danim");
@@ -57,12 +57,12 @@ class UserServiceTest {
         when(avatarRepository.existsById(id)).thenReturn(false);
 
         UserResponse updated = userService.updateProfile(id,
-                new com.pulse.auth.user.dto.UpdateProfileRequest("  Daniela Sofía ", "Mora Pérez"));
+                new com.pulse.auth.user.dto.UpdateProfileRequest("  dani_mora "));
 
-        assertThat(updated.firstName()).isEqualTo("Daniela Sofía");
-        assertThat(updated.lastName()).isEqualTo("Mora Pérez");
+        assertThat(updated.firstName()).isEqualTo("Daniela");
+        assertThat(updated.lastName()).isEqualTo("Mora");
         assertThat(updated.username()).isEqualTo("daniela");
-        assertThat(updated.alias()).isEqualTo("danim");
+        assertThat(updated.alias()).isEqualTo("dani_mora");
     }
 
     @Test

@@ -4,6 +4,7 @@ import { Post } from '../../core/models';
 import { TimeAgoPipe } from '../../core/time-ago.pipe';
 import { WsService } from '../../core/ws.service';
 import { AvatarComponent } from '../../shared/avatar.component';
+import { AuthStore } from '../../stores/auth.store';
 import { PostsStore } from '../../stores/posts.store';
 
 @Component({
@@ -14,6 +15,7 @@ import { PostsStore } from '../../stores/posts.store';
 })
 export class FeedComponent implements OnInit {
   readonly store = inject(PostsStore);
+  readonly auth = inject(AuthStore);
   private readonly ws = inject(WsService);
 
   readonly skeletons = [0, 1, 2];
@@ -47,6 +49,10 @@ export class FeedComponent implements OnInit {
 
   toggleLike(post: Post): void {
     void this.store.toggleLike(post);
+  }
+
+  deletePost(post: Post): void {
+    void this.store.deletePost(post.id);
   }
 
   private flash(target: typeof this.pulsing, id: string, ms: number): void {

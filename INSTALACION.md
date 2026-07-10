@@ -92,18 +92,18 @@ El script independiente equivalente está en `db/seed.sql`.
 1. **Login** — entra a http://localhost:4200; usa un chip de usuario demo (se
    llenan las credenciales) e Ingresar. El backend responde un JWT que el
    frontend guarda y adjunta vía interceptor.
-2. **Publicaciones** — feed con las publicaciones de **otros** usuarios (las
-   propias no aparecen, como pide el enunciado), con foto del autor, imagen de
+2. **Publicaciones** — feed con las publicaciones de **todos** los usuarios,
+   con foto del autor, imagen de
    la publicación (si tiene), total de likes y corazón para dar/quitar like.
 3. **Tiempo real** — abre una segunda ventana (incógnito) con otro usuario:
    los **likes** actualizan el contador en ambas ventanas al instante, y las
-   **publicaciones nuevas** aparecen solas en el feed del otro usuario, sin
+   **publicaciones nuevas** aparecen solas en el feed, sin
    recargar (WebSocket STOMP → SignalStore → señal → render).
 4. **Crear publicación** — pestaña "Crear": mensaje y foto opcional
    (JPEG/PNG/WebP hasta 2MB); la fecha la asigna el servidor al guardar.
 5. **Perfil** — clic en tu usuario (arriba a la derecha): nombres, apellidos,
    fecha de nacimiento y alias desde `GET /users/me`. Desde ahí puedes **editar
-   tus nombres** y **subir tu foto de perfil** (clic sobre el avatar).
+   tu alias** y **subir tu foto de perfil** (clic sobre el avatar).
 
 ## 7. Stored procedures (requisito de BD)
 
@@ -114,7 +114,7 @@ invocadas desde Java:
 |---|---|---|
 | `sp_register_like(post, user, INOUT total)` | PROCEDURE | Inserta el like (idempotente: `ON CONFLICT DO NOTHING` + PK compuesta) y retorna el nuevo total. Se invoca con `CALL` vía `CallableStatement`. |
 | `sp_remove_like(post, user, INOUT total)` | PROCEDURE | Elimina el like y retorna el nuevo total. |
-| `sp_get_posts_with_likes(current_user)` | FUNCTION `RETURNS TABLE` | Feed: posts de otros usuarios + conteo de likes + `liked_by_me`. |
+| `sp_get_posts_with_likes(current_user)` | FUNCTION `RETURNS TABLE` | Feed: posts de todos los usuarios + conteo de likes + `liked_by_me`. |
 
 PostgreSQL distingue PROCEDURE (se invoca con `CALL`, admite `INOUT`) de
 FUNCTION (retorna filas). Las mutaciones son PROCEDUREs reales y la lectura es

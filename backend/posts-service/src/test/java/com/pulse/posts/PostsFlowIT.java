@@ -16,7 +16,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -60,14 +59,14 @@ class PostsFlowIT extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("feed excludes the requesting user's own posts")
-    void feedExcludesOwnPosts() throws Exception {
+    @DisplayName("feed includes the requesting user's own posts")
+    void feedIncludesOwnPosts() throws Exception {
         mockMvc.perform(get("/posts")
                         .header("Authorization", tokenFor(MARIANA_ID, "mariana", "marilo")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].authorId", not(MARIANA_ID.toString())))
-                .andExpect(jsonPath("$[*].authorAlias", not("marilo")))
-                .andExpect(jsonPath("$.length()", greaterThanOrEqualTo(4)))
+                .andExpect(jsonPath("$[?(@.id == '" + MARIANA_POST + "')].authorId").value(MARIANA_ID.toString()))
+                .andExpect(jsonPath("$[?(@.id == '" + MARIANA_POST + "')].authorAlias").value("marilo"))
+                .andExpect(jsonPath("$.length()", greaterThanOrEqualTo(5)))
                 .andExpect(jsonPath("$[0].likeCount").isNumber())
                 .andExpect(jsonPath("$[0].likedByMe").isBoolean())
                 .andExpect(jsonPath("$[0].publishedAt").isNotEmpty());
@@ -167,6 +166,36 @@ class PostsFlowIT extends AbstractIntegrationTest {
                 "SELECT count(*) FROM posts.likes WHERE post_id = ? AND user_id = ?",
                 Integer.class, CARLOS_POST, MARIANA_ID);
         assertThat(stored).isZero();
+    }
+
+    @Test
+    @DisplayName("an author can delete their own post")
+    void deleteOwnPost() throws Exception {
+        MvcResult created = mockMvc.perform(post("/posts")
+                        .header("Authorization", tokenFor(MARIANA_ID, "mariana", "marilo"))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"message\":\"delete me\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String postId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .get("id").asText();
+
+        mockMvc.perform(delete("/posts/" + postId)
+                        .header("Authorization", tokenFor(MARIANA_ID, "mariana", "marilo")))
+                .andExpect(status().isNoContent());
+
+        assertThat(postRepository.existsById(UUID.fromString(postId))).isFalse();
+    }
+
+    @Test
+    @DisplayName("a user cannot delete another user's post")
+    void deleteOtherUsersPostRejected() throws Exception {
+        mockMvc.perform(delete("/posts/" + MARIANA_POST)
+                        .header("Authorization", tokenFor(CARLOS_ID, "carlos", "cgomez")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Solo puedes eliminar tus propias publicaciones"));
+
+        assertThat(postRepository.existsById(MARIANA_POST)).isTrue();
     }
 
     @Test

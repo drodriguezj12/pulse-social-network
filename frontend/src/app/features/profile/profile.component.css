@@ -26,6 +26,7 @@
   transition: background var(--t-fast) var(--ease-out);
 }
 .avatar-edit:hover .avatar-overlay { background: var(--primary-strong); }
+.readonly-avatar { cursor: default; }
 
 .identity { display: grid; gap: 0.125rem; }
 .alias { color: var(--primary); font-weight: 500; font-size: 0.9375rem; }

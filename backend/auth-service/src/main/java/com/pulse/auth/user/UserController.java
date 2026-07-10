@@ -1,6 +1,8 @@
 package com.pulse.auth.user;
 
+import com.pulse.auth.auth.dto.LoginResponse;
 import com.pulse.auth.security.AuthenticatedUser;
+import com.pulse.auth.security.JwtService;
 import com.pulse.auth.user.dto.UpdateProfileRequest;
 import com.pulse.auth.user.dto.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,9 +34,11 @@ public class UserController {
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     private final UserService userService;
+    private final JwtService jwtService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, JwtService jwtService) {
         this.userService = userService;
+        this.jwtService = jwtService;
     }
 
     @GetMapping("/me")
@@ -45,12 +49,24 @@ public class UserController {
         return userService.getProfile(principal.id());
     }
 
+    @GetMapping("/{userId}")
+    @Operation(summary = "Get another user's profile",
+            description = "Authenticated users can view profiles, but only /users/me can be edited.")
+    public UserResponse profile(@AuthenticationPrincipal AuthenticatedUser principal,
+                                @PathVariable UUID userId) {
+        log.info("AUDIT profile_viewed viewerId={} username={} targetId={}",
+                principal.id(), principal.username(), userId);
+        return userService.getProfile(userId);
+    }
+
     @PutMapping("/me")
-    @Operation(summary = "Update the authenticated user's display names",
-            description = "Only first and last name are editable; login identity (username) and alias stay immutable.")
-    public UserResponse updateMe(@AuthenticationPrincipal AuthenticatedUser principal,
-                                 @Valid @RequestBody UpdateProfileRequest request) {
-        return userService.updateProfile(principal.id(), request);
+    @Operation(summary = "Update the authenticated user's alias",
+            description = "Only alias is editable; login identity (username) and real names stay immutable.")
+    public LoginResponse updateMe(@AuthenticationPrincipal AuthenticatedUser principal,
+                                  @Valid @RequestBody UpdateProfileRequest request) {
+        UserResponse user = userService.updateProfile(principal.id(), request);
+        String token = jwtService.generateToken(user.id(), user.username(), user.alias());
+        return new LoginResponse(token, "Bearer", jwtService.expirationMs(), user);
     }
 
     @PutMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

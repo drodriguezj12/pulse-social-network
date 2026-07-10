@@ -29,4 +29,8 @@ export class PostsApiService {
   unlike(postId: string): Observable<LikeResponse> {
     return this.http.delete<LikeResponse>(`/posts/${postId}/likes`);
   }
+
+  delete(postId: string): Observable<void> {
+    return this.http.delete<void>(`/posts/${postId}`);
+  }
 }

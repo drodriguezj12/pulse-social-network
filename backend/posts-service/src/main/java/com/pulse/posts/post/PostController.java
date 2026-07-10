@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,8 +37,8 @@ public class PostController {
     }
 
     @GetMapping
-    @Operation(summary = "List other users' posts",
-            description = "Feed of posts by users other than the token owner, newest first, "
+    @Operation(summary = "List feed posts",
+            description = "Feed of posts from every user, newest first, "
                     + "with like totals and whether the current user liked each post.")
     public List<PostResponse> feed(@AuthenticationPrincipal AuthenticatedUser user) {
         return postService.getFeed(user);
@@ -78,6 +79,15 @@ public class PostController {
                 .contentType(MediaType.parseMediaType(image.getContentType()))
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(365)))  // immutable once created
                 .body(image.getImage());
+    }
+
+    @DeleteMapping("/{postId}")
+    @Operation(summary = "Delete one of the authenticated user's posts",
+            description = "Only the author of a post can delete it.")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal AuthenticatedUser user,
+                                       @PathVariable UUID postId) {
+        postService.delete(user, postId);
+        return ResponseEntity.noContent().build();
     }
 
     /** Manual Bean Validation for the multipart variant (no @RequestBody there). */

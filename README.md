@@ -3,7 +3,7 @@
 Prueba técnica Full Stack (Angular + Java) · **Java 21 · Spring Boot 3.3 · Angular 19 · PostgreSQL 16 · Docker**
 
 Pulse es una red social con arquitectura de microservicios: autenticación JWT,
-perfiles con **foto y nombres editables**, publicaciones **con imagen opcional**, y
+perfiles con **foto y alias editable**, publicaciones **con imagen opcional**, y
 **tiempo real** vía WebSocket (STOMP): tanto los likes como las publicaciones nuevas
 aparecen en todos los navegadores conectados sin recargar. Todo el stack se levanta
 con un solo comando de Docker Compose.
@@ -151,9 +151,9 @@ TOKEN=$(curl -s -X POST http://localhost:8081/auth/login -H "Content-Type: appli
   -d '{"username":"mariana","password":"Pulse2026!"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
 curl -s http://localhost:8081/users/me -H "Authorization: Bearer $TOKEN"
 
-# Editar nombres del perfil (username y alias son inmutables por diseño)
+# Editar alias del perfil (username y nombre real son inmutables por diseño)
 curl -s -X PUT http://localhost:8081/users/me -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" -d '{"firstName":"Mariana Isabel","lastName":"López"}'
+  -H "Content-Type: application/json" -d '{"alias":"mariana_live"}'
 
 # Subir foto de perfil (JPEG/PNG/WebP, máx 2MB) y leerla (pública, para tags img)
 curl -s -X PUT http://localhost:8081/users/me/avatar -H "Authorization: Bearer $TOKEN" \
@@ -199,7 +199,7 @@ Endpoint STOMP: `ws://localhost:8082/ws` (o `ws://localhost:4200/ws` vía nginx)
 | Tópico | Payload | Cuándo |
 |---|---|---|
 | `/topic/likes` | `{ "postId": "…", "likeCount": 3 }` | Cada like/unlike |
-| `/topic/posts` | la publicación completa (`PostResponse`) | Cada publicación nueva — los feeds abiertos la muestran al instante (cada cliente descarta las propias) |
+| `/topic/posts` | la publicación completa (`PostResponse`) | Cada publicación nueva — los feeds abiertos la muestran al instante |
 
 ## Tests
 
@@ -210,7 +210,7 @@ mvn test     # unitarios (JUnit 5 + Mockito), sin Docker
 mvn verify   # + integración (Testcontainers + PostgreSQL real; requiere Docker)
 ```
 
-Cobertura de integración destacada: flujo completo de login y perfil, exclusión de
+Cobertura de integración destacada: flujo completo de login y perfil, inclusión de
 publicaciones propias en el feed, **ejecución real de las stored procedures**
 (idempotencia del like verificada contra la BD), acumulación de likes entre
 usuarios distintos, ciclo completo de imágenes (subida multipart, lectura pública,

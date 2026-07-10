@@ -1,7 +1,7 @@
 <section class="screen container feed">
   <header class="feed-head">
     <h1>Publicaciones</h1>
-    <p class="feed-sub">Lo que comparten otras personas, en vivo</p>
+    <p class="feed-sub">Lo que comparte la comunidad, en vivo</p>
   </header>
 
   @if (store.loading()) {
@@ -20,17 +20,23 @@
     }
   } @else if (store.isEmpty()) {
     <div class="card empty">
-      <p class="empty-title">Aún no hay publicaciones de otras personas</p>
-      <p class="empty-sub">Rompe el silencio: crea la primera publicación y aparecerá en el feed de los demás.</p>
+      <p class="empty-title">Aún no hay publicaciones</p>
+      <p class="empty-sub">Rompe el silencio: crea la primera publicación y aparecerá en el feed.</p>
       <a routerLink="/crear" class="btn btn-primary">Crear publicación</a>
     </div>
   } @else {
     @for (post of store.posts(); track post.id) {
       <article class="card post-card" [class.post-new]="entering().has(post.id)">
         <div class="post-head">
-          <app-avatar [userId]="post.authorId" [alias]="post.authorAlias" />
+          <a
+            [routerLink]="['/perfil', post.authorId]"
+            class="profile-link"
+            [attr.aria-label]="'Ver perfil de @' + post.authorAlias"
+          >
+            <app-avatar [userId]="post.authorId" [alias]="post.authorAlias" />
+          </a>
           <div class="post-meta">
-            <span class="post-alias">&#64;{{ post.authorAlias }}</span>
+            <a [routerLink]="['/perfil', post.authorId]" class="post-alias">&#64;{{ post.authorAlias }}</a>
             <time [attr.datetime]="post.publishedAt">{{ post.publishedAt | timeAgo }}</time>
           </div>
         </div>
@@ -70,6 +76,16 @@
             </span>
             <span class="like-count" [class.pulse-count]="pulsing().has(post.id)">{{ post.likeCount }}</span>
           </button>
+          @if (auth.user()?.id === post.authorId) {
+            <button
+              type="button"
+              class="delete-btn"
+              (click)="deletePost(post)"
+              aria-label="Eliminar publicación"
+            >
+              Eliminar
+            </button>
+          }
         </div>
       </article>
     }

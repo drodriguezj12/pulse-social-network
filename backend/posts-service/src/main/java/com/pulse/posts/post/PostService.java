@@ -8,9 +8,11 @@ import com.pulse.posts.security.AuthenticatedUser;
 import com.pulse.posts.ws.PostBroadcaster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.List;
@@ -39,14 +41,15 @@ public class PostService {
         this.postBroadcaster = postBroadcaster;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PostResponse> getFeed(AuthenticatedUser user) {
+        postRepository.updateAuthorAlias(user.id(), user.alias());
         return postFeedDao.findFeedFor(user.id());
     }
 
     /**
      * Creates a post with an optional image, then broadcasts it to /topic/posts
-     * so every open feed shows it in real time (clients skip their own posts).
+     * so every open feed shows it in real time.
      */
     @Transactional
     public PostResponse create(AuthenticatedUser author, CreatePostRequest request, MultipartFile image) {
@@ -73,6 +76,18 @@ public class PostService {
     public PostImageEntity getImage(UUID postId) {
         return postImageRepository.findById(postId)
                 .orElseThrow(() -> new NotFoundException("Post image not found"));
+    }
+
+    @Transactional
+    public void delete(AuthenticatedUser user, UUID postId) {
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new NotFoundException("Post not found"));
+        if (!post.getAuthorId().equals(user.id())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes eliminar tus propias publicaciones");
+        }
+        postRepository.delete(post);
+        log.info("AUDIT post_deleted postId={} authorId={} username={}",
+                postId, user.id(), user.username());
     }
 
     private String validatedContentType(MultipartFile image) {

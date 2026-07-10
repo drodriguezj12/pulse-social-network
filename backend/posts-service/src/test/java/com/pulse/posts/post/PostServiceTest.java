@@ -15,6 +15,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -94,6 +95,29 @@ class PostServiceTest {
         when(postFeedDao.findFeedFor(carlos.id())).thenReturn(feed);
 
         assertThat(postService.getFeed(carlos)).isEqualTo(feed);
+        verify(postRepository).updateAuthorAlias(carlos.id(), carlos.alias());
         verify(postFeedDao).findFeedFor(carlos.id());
+    }
+
+    @Test
+    @DisplayName("deleting a post removes it when the JWT owner is the author")
+    void deleteOwnPost() {
+        PostEntity post = new PostEntity(carlos.id(), carlos.alias(), "mine");
+        when(postRepository.findById(post.getId())).thenReturn(Optional.of(post));
+
+        postService.delete(carlos, post.getId());
+
+        verify(postRepository).delete(post);
+    }
+
+    @Test
+    @DisplayName("deleting another user's post is forbidden")
+    void deleteOtherUsersPostRejected() {
+        PostEntity post = new PostEntity(UUID.randomUUID(), "marilo", "not mine");
+        when(postRepository.findById(post.getId())).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> postService.delete(carlos, post.getId()))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("Solo puedes eliminar tus propias publicaciones");
     }
 }

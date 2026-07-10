@@ -23,7 +23,7 @@ describe('PostsStore', () => {
   };
 
   beforeEach(() => {
-    api = jasmine.createSpyObj('PostsApiService', ['feed', 'create', 'like', 'unlike']);
+    api = jasmine.createSpyObj('PostsApiService', ['feed', 'create', 'like', 'unlike', 'delete']);
     toasts = jasmine.createSpyObj('ToastService', ['success', 'error']);
     TestBed.configureTestingModule({
       providers: [
@@ -108,5 +108,47 @@ describe('PostsStore', () => {
     api.create.and.returnValue(throwError(() => new HttpErrorResponse({ status: 400 })));
     expect(await store.createPost('x')).toBeFalse();
     expect(toasts.error).toHaveBeenCalled();
+  });
+
+  it('createPost prepends the created post returned by the API', async () => {
+    api.feed.and.returnValue(of([post]));
+    await store.loadFeed();
+    const created: Post = { ...post, id: 'p3', authorId: 'u1', message: 'mi post' };
+    api.create.and.returnValue(of(created));
+
+    expect(await store.createPost('mi post')).toBeTrue();
+
+    expect(store.posts().map(p => p.id)).toEqual(['p3', 'p1']);
+    expect(store.lastNewPost()?.postId).toBe('p3');
+  });
+
+  it('loadFeed keeps locally created posts that are missing from the API feed', async () => {
+    const olderPost: Post = { ...post, publishedAt: '2026-07-10T10:00:00.000Z' };
+    const created: Post = {
+      ...post,
+      id: 'p3',
+      authorId: 'u1',
+      message: 'mi post',
+      publishedAt: '2026-07-10T11:00:00.000Z',
+    };
+    api.create.and.returnValue(of(created));
+    await store.createPost('mi post');
+
+    api.feed.and.returnValue(of([olderPost]));
+    await store.loadFeed();
+
+    expect(store.posts().map(p => p.id)).toEqual(['p3', 'p1']);
+  });
+
+  it('deletePost removes a deleted post from the feed', async () => {
+    api.feed.and.returnValue(of([post]));
+    api.delete.and.returnValue(of(void 0));
+    await store.loadFeed();
+
+    expect(await store.deletePost(post.id)).toBeTrue();
+
+    expect(api.delete).toHaveBeenCalledWith('p1');
+    expect(store.posts()).toEqual([]);
+    expect(toasts.success).toHaveBeenCalledWith('Publicación eliminada');
   });
 });

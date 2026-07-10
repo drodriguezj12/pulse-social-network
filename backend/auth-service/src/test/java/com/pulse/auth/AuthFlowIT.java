@@ -2,6 +2,7 @@ package com.pulse.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pulse.auth.security.JwtService;
 import com.pulse.auth.user.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,9 @@ class AuthFlowIT extends AbstractIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private JwtService jwtService;
 
     @Test
     @DisplayName("seeder creates the five demo users on startup")
@@ -131,19 +135,47 @@ class AuthFlowIT extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("PUT /users/me updates display names but never username or alias")
+    @DisplayName("GET /users/{id} lets an authenticated user view another user's profile")
+    void publicProfileWithToken() throws Exception {
+        String token = loginAndGetToken("carlos");
+
+        mockMvc.perform(get("/users/00000000-0000-0000-0000-000000000001")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("mariana"))
+                .andExpect(jsonPath("$.firstName").value("Mariana"))
+                .andExpect(jsonPath("$.lastName").value("López"))
+                .andExpect(jsonPath("$.alias").value("marilo"));
+    }
+
+    @Test
+    @DisplayName("GET /users/{id} without a token returns 401")
+    void publicProfileWithoutTokenRejected() throws Exception {
+        mockMvc.perform(get("/users/00000000-0000-0000-0000-000000000001"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("PUT /users/me updates alias but never username or real names")
     void updateProfile() throws Exception {
         String token = loginAndGetToken("andres");
 
-        mockMvc.perform(put("/users/me")
+        MvcResult updated = mockMvc.perform(put("/users/me")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"firstName\":\"Andrés Felipe\",\"lastName\":\"Torres Gil\"}"))
+                        .content("{\"alias\":\"andres_live\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.firstName").value("Andrés Felipe"))
-                .andExpect(jsonPath("$.lastName").value("Torres Gil"))
-                .andExpect(jsonPath("$.username").value("andres"))
-                .andExpect(jsonPath("$.alias").value("atorres"));
+                .andExpect(jsonPath("$.token").isNotEmpty())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.user.firstName").value("Andrés"))
+                .andExpect(jsonPath("$.user.lastName").value("Torres"))
+                .andExpect(jsonPath("$.user.username").value("andres"))
+                .andExpect(jsonPath("$.user.alias").value("andres_live"))
+                .andReturn();
+
+        String newToken = objectMapper.readTree(updated.getResponse().getContentAsString())
+                .get("token").asText();
+        assertThat(jwtService.parse(newToken).alias()).isEqualTo("andres_live");
     }
 
     @Test

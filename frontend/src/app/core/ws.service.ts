@@ -1,6 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
-import { AuthStore } from '../stores/auth.store';
 import { PostsStore } from '../stores/posts.store';
 import { LikeEvent, Post } from './models';
 
@@ -12,7 +11,6 @@ import { LikeEvent, Post } from './models';
 @Injectable({ providedIn: 'root' })
 export class WsService {
   private readonly postsStore = inject(PostsStore);
-  private readonly authStore = inject(AuthStore);
   private readonly rxStomp = new RxStomp();
   private started = false;
 
@@ -39,10 +37,7 @@ export class WsService {
     );
     this.rxStomp.watch('/topic/posts').subscribe(message => {
       const post = JSON.parse(message.body) as Post;
-      // The feed only shows other people's posts; skip my own broadcasts.
-      if (post.authorId !== this.authStore.user()?.id) {
-        this.postsStore.applyNewPost(post);
-      }
+      this.postsStore.applyNewPost(post);
     });
 
     this.rxStomp.activate();

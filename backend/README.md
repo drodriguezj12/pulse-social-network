@@ -34,7 +34,7 @@ mvn verify   # unitarios + integración (Testcontainers, requiere Docker)
 ```
 
 Los tests de integración levantan un PostgreSQL 16 real y cubren: flujo de login,
-tenantabilidad del feed (excluye publicaciones propias), **ejecución real de las
+feed con publicaciones propias incluidas, **ejecución real de las
 procedures** (idempotencia verificada contra la BD) y recepción del broadcast en un
 cliente STOMP real.
 

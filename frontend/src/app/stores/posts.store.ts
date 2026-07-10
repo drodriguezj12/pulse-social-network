@@ -51,12 +51,23 @@ export const PostsStore = signalStore(
         posts: store.posts().map(p => (p.id === postId ? { ...p, ...patch } : p)),
       });
 
+    const mergeFeed = (remotePosts: Post[]) => {
+      const remoteIds = new Set(remotePosts.map(post => post.id));
+      return [
+        ...remotePosts,
+        ...store.posts().filter(post => !remoteIds.has(post.id)),
+      ].sort(
+        (a, b) =>
+          new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
+      );
+    };
+
     return {
       async loadFeed(): Promise<void> {
         patchState(store, { loading: true });
         try {
           const posts = await firstValueFrom(api.feed());
-          patchState(store, { posts, loading: false, loaded: true });
+          patchState(store, { posts: mergeFeed(posts), loading: false, loaded: true });
         } catch (e) {
           patchState(store, { loading: false, loaded: true });
           toasts.error(httpMessage(e, 'No se pudieron cargar las publicaciones'));
@@ -66,7 +77,8 @@ export const PostsStore = signalStore(
       async createPost(message: string, image?: File | null): Promise<boolean> {
         patchState(store, { creating: true });
         try {
-          await firstValueFrom(api.create(message, image));
+          const created = await firstValueFrom(api.create(message, image));
+          this.applyNewPost(created);
           patchState(store, { creating: false });
           toasts.success('Publicación creada');
           return true;
@@ -95,6 +107,20 @@ export const PostsStore = signalStore(
         }
       },
 
+      async deletePost(postId: string): Promise<boolean> {
+        try {
+          await firstValueFrom(api.delete(postId));
+          patchState(store, {
+            posts: store.posts().filter(post => post.id !== postId),
+          });
+          toasts.success('Publicación eliminada');
+          return true;
+        } catch (e) {
+          toasts.error(httpMessage(e, 'No se pudo eliminar la publicación'));
+          return false;
+        }
+      },
+
       /** Entry point for WebSocket like broadcasts (see WsService). */
       applyLikeEvent(event: LikeEvent): void {
         replacePost(event.postId, { likeCount: event.likeCount });
@@ -103,8 +129,8 @@ export const PostsStore = signalStore(
 
       /**
        * Entry point for WebSocket new-post broadcasts. Prepends the post so
-       * every open feed grows in real time; WsService already filtered out
-       * the current user's own posts (the feed only shows other people's).
+       * every open feed grows in real time. Duplicate frames are ignored, so
+       * the creator can also receive the broadcast after the REST response.
        */
       applyNewPost(post: Post): void {
         if (store.posts().some(p => p.id === post.id)) {

@@ -78,13 +78,14 @@ export const AuthStore = signalStore(
         }
       },
 
-      /** Edits display names; username and alias stay immutable by design. */
-      async updateProfile(firstName: string, lastName: string): Promise<boolean> {
+      /** Edits the public alias; username and real names stay immutable. */
+      async updateProfile(alias: string): Promise<boolean> {
         patchState(store, { saving: true });
         try {
-          const user = await firstValueFrom(api.updateProfile(firstName, lastName));
-          localStorage.setItem(USER_KEY, JSON.stringify(user));
-          patchState(store, { user, saving: false });
+          const res = await firstValueFrom(api.updateProfile(alias));
+          localStorage.setItem(TOKEN_KEY, res.token);
+          localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+          patchState(store, { user: res.user, token: res.token, saving: false });
           toasts.success('Perfil actualizado');
           return true;
         } catch (e) {

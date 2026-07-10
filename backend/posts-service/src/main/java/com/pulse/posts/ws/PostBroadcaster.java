@@ -8,8 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Pushes newly created posts to every connected client so open feeds grow in
- * real time. Clients ignore their own posts (the feed only shows other
- * users' publications).
+ * real time.
  */
 @Component
 public class PostBroadcaster {

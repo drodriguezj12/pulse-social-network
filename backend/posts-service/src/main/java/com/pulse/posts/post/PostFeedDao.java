@@ -11,9 +11,8 @@ import java.util.UUID;
 
 /**
  * Reads the feed through the set-returning PL/pgSQL function
- * sp_get_posts_with_likes (see V2__create_procedures.sql): posts by OTHER
- * users, newest first, each with its like count and whether the current
- * user already liked it.
+ * sp_get_posts_with_likes: posts from every user, newest first, each with its
+ * like count and whether the current user already liked it.
  */
 @Repository
 public class PostFeedDao {

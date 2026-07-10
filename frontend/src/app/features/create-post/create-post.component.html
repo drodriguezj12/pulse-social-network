@@ -4,7 +4,7 @@
     <p class="create-sub">La fecha de publicación se asigna automáticamente al guardar.</p>
   </header>
 
-  <form class="card create-card" (ngSubmit)="submit()" novalidate>
+  <form class="card create-card" (submit)="submit($event)" novalidate>
     <div class="field">
       <label for="message">Mensaje</label>
       <textarea

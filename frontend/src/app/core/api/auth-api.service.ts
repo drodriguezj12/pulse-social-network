@@ -20,8 +20,12 @@ export class AuthApiService {
     return this.http.get<UserProfile>('/users/me');
   }
 
-  updateProfile(firstName: string, lastName: string): Observable<UserProfile> {
-    return this.http.put<UserProfile>('/users/me', { firstName, lastName });
+  user(userId: string): Observable<UserProfile> {
+    return this.http.get<UserProfile>(`/users/${userId}`);
+  }
+
+  updateProfile(alias: string): Observable<LoginResponse> {
+    return this.http.put<LoginResponse>('/users/me', { alias });
   }
 
   uploadAvatar(image: File): Observable<UserProfile> {
