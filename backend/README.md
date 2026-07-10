@@ -5,8 +5,8 @@ Spring Boot 3.3, PostgreSQL 16 + Flyway, JWT HS256 compartido por configuración
 
 | Servicio | Puerto | Responsabilidad | Schema |
 |---|---|---|---|
-| [`auth-service`](auth-service) | 8081 | Login JWT (POST + GET literal) y perfil | `auth` |
-| [`posts-service`](posts-service) | 8082 | Publicaciones, likes (stored procedures) y WebSocket | `posts` |
+| [`auth-service`](auth-service) | 8081 | Login JWT (POST + GET literal), perfil propio y perfiles de solo lectura | `auth` |
+| [`posts-service`](posts-service) | 8082 | Publicaciones, borrado propio, likes (stored procedures) y WebSocket | `posts` |
 
 ## Puntos clave
 

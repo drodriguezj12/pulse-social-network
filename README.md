@@ -151,6 +151,10 @@ TOKEN=$(curl -s -X POST http://localhost:8081/auth/login -H "Content-Type: appli
   -d '{"username":"mariana","password":"Pulse2026!"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
 curl -s http://localhost:8081/users/me -H "Authorization: Bearer $TOKEN"
 
+# Ver el perfil de otro usuario (solo lectura)
+curl -s http://localhost:8081/users/00000000-0000-0000-0000-000000000002 \
+  -H "Authorization: Bearer $TOKEN"
+
 # Editar alias del perfil (username y nombre real son inmutables por diseño)
 curl -s -X PUT http://localhost:8081/users/me -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -d '{"alias":"mariana_live"}'
@@ -164,7 +168,7 @@ curl -s http://localhost:8081/users/00000000-0000-0000-0000-000000000001/avatar 
 ### posts-service (`:8082`)
 
 ```bash
-# Feed: publicaciones de OTROS usuarios con total de likes (vía sp_get_posts_with_likes)
+# Feed: publicaciones de todos los usuarios con total de likes (vía sp_get_posts_with_likes)
 curl -s http://localhost:8082/posts -H "Authorization: Bearer $TOKEN"
 
 # Crear publicación (fecha asignada por el servidor al guardar)
@@ -176,6 +180,10 @@ curl -s -X POST http://localhost:8082/posts \
 curl -s -X POST http://localhost:8082/posts -H "Authorization: Bearer $TOKEN" \
   -F "message=Con foto" -F "image=@foto.png;type=image/png"
 curl -s http://localhost:8082/posts/{postId}/image -o post.png
+
+# Eliminar una publicaci�n propia (las ajenas responden 403)
+curl -s -X DELETE http://localhost:8082/posts/{postId} \
+  -H "Authorization: Bearer $TOKEN"
 
 # Dar like (idempotente, vía sp_register_like) — difunde el total por WebSocket
 curl -s -X POST http://localhost:8082/posts/10000000-0000-0000-0000-000000000002/likes \

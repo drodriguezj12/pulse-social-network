@@ -94,7 +94,8 @@ El script independiente equivalente está en `db/seed.sql`.
    frontend guarda y adjunta vía interceptor.
 2. **Publicaciones** — feed con las publicaciones de **todos** los usuarios,
    con foto del autor, imagen de
-   la publicación (si tiene), total de likes y corazón para dar/quitar like.
+   la publicación (si tiene), total de likes, corazón para dar/quitar like y
+   botón para eliminar tus propias publicaciones.
 3. **Tiempo real** — abre una segunda ventana (incógnito) con otro usuario:
    los **likes** actualizan el contador en ambas ventanas al instante, y las
    **publicaciones nuevas** aparecen solas en el feed, sin
@@ -103,7 +104,8 @@ El script independiente equivalente está en `db/seed.sql`.
    (JPEG/PNG/WebP hasta 2MB); la fecha la asigna el servidor al guardar.
 5. **Perfil** — clic en tu usuario (arriba a la derecha): nombres, apellidos,
    fecha de nacimiento y alias desde `GET /users/me`. Desde ahí puedes **editar
-   tu alias** y **subir tu foto de perfil** (clic sobre el avatar).
+   tu alias** y **subir tu foto de perfil** (clic sobre el avatar). Desde el
+   feed puedes abrir perfiles de otros usuarios en modo solo lectura.
 
 ## 7. Stored procedures (requisito de BD)
 
