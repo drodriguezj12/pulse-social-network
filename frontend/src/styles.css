@@ -64,23 +64,24 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Aurora backdrop: slow-drifting color fields the glass surfaces sit on. */
+/* Aurora backdrop: slow-drifting color fields the glass surfaces sit on.
+   Softness is baked into the gradients (no filter: blur — much cheaper on GPU). */
 body::before {
   content: '';
   position: fixed;
-  inset: -25%;
+  inset: -12%;
   z-index: -1;
   pointer-events: none;
+  will-change: transform;
   background:
-    radial-gradient(38% 32% at 18% 22%, oklch(0.45 0.19 345 / 0.4), transparent 70%),
-    radial-gradient(32% 36% at 82% 16%, oklch(0.42 0.17 290 / 0.34), transparent 70%),
-    radial-gradient(42% 42% at 62% 88%, oklch(0.42 0.15 230 / 0.28), transparent 70%),
-    radial-gradient(24% 24% at 40% 55%, oklch(0.5 0.13 45 / 0.14), transparent 70%);
-  filter: blur(70px);
+    radial-gradient(42% 38% at 18% 22%, oklch(0.42 0.17 345 / 0.34) 0%, oklch(0.42 0.17 345 / 0.12) 45%, transparent 72%),
+    radial-gradient(38% 42% at 82% 14%, oklch(0.40 0.15 290 / 0.30) 0%, oklch(0.40 0.15 290 / 0.10) 45%, transparent 72%),
+    radial-gradient(48% 46% at 62% 90%, oklch(0.40 0.13 230 / 0.24) 0%, oklch(0.40 0.13 230 / 0.08) 45%, transparent 72%),
+    radial-gradient(30% 30% at 42% 55%, oklch(0.48 0.11 45 / 0.12) 0%, transparent 70%);
   animation: aurora-drift 26s var(--ease-out) infinite alternate;
 }
 @keyframes aurora-drift {
-  to { transform: translate(-3.5%, 3%) rotate(2deg) scale(1.07); }
+  to { transform: translate(-3%, 2.5%) scale(1.06); }
 }
 
 h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
