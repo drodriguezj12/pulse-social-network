@@ -10,10 +10,15 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import org.springframework.mock.web.MockMultipartFile;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -123,6 +128,61 @@ class AuthFlowIT extends AbstractIntegrationTest {
     void profileWithoutToken() throws Exception {
         mockMvc.perform(get("/users/me"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("PUT /users/me updates display names but never username or alias")
+    void updateProfile() throws Exception {
+        String token = loginAndGetToken("andres");
+
+        mockMvc.perform(put("/users/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"firstName\":\"Andrés Felipe\",\"lastName\":\"Torres Gil\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value("Andrés Felipe"))
+                .andExpect(jsonPath("$.lastName").value("Torres Gil"))
+                .andExpect(jsonPath("$.username").value("andres"))
+                .andExpect(jsonPath("$.alias").value("atorres"));
+    }
+
+    @Test
+    @DisplayName("avatar upload, public read and type validation work end to end")
+    void avatarLifecycle() throws Exception {
+        String token = loginAndGetToken("valentina");
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, 1, 2, 3};
+
+        // before upload: 404 (frontend falls back to the initial disc)
+        mockMvc.perform(get("/users/00000000-0000-0000-0000-000000000003/avatar"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(multipart("/users/me/avatar")
+                        .file(new MockMultipartFile("image", "me.png", "image/png", png))
+                        .header("Authorization", "Bearer " + token)
+                        .with(request -> { request.setMethod("PUT"); return request; }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasAvatar").value(true));
+
+        // public read without any token
+        mockMvc.perform(get("/users/00000000-0000-0000-0000-000000000003/avatar"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
+
+        // wrong content type rejected
+        mockMvc.perform(multipart("/users/me/avatar")
+                        .file(new MockMultipartFile("image", "notes.txt", "text/plain", "x".getBytes()))
+                        .header("Authorization", "Bearer " + token)
+                        .with(request -> { request.setMethod("PUT"); return request; }))
+                .andExpect(status().isBadRequest());
+    }
+
+    private String loginAndGetToken(String username) throws Exception {
+        MvcResult login = mockMvc.perform(post("/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"username\":\"" + username + "\",\"password\":\"Pulse2026!\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(login.getResponse().getContentAsString()).get("token").asText();
     }
 
     @Test

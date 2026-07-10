@@ -3,6 +3,7 @@ package com.pulse.auth.auth;
 import com.pulse.auth.auth.dto.LoginResponse;
 import com.pulse.auth.common.InvalidCredentialsException;
 import com.pulse.auth.security.JwtService;
+import com.pulse.auth.user.UserAvatarRepository;
 import com.pulse.auth.user.UserEntity;
 import com.pulse.auth.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +32,9 @@ class AuthServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private UserAvatarRepository avatarRepository;
+
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final JwtService jwtService = new JwtService(SECRET, 3_600_000L);
 
@@ -39,7 +43,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(userRepository, passwordEncoder, jwtService);
+        authService = new AuthService(userRepository, avatarRepository, passwordEncoder, jwtService);
         mariana = new UserEntity(
                 UUID.fromString("00000000-0000-0000-0000-000000000001"),
                 "mariana",

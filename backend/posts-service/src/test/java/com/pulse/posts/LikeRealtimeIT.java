@@ -55,11 +55,58 @@ class LikeRealtimeIT {
     @Autowired
     private TestRestTemplate restTemplate;
 
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    private WebSocketStompClient stompClient() {
+        WebSocketStompClient client = new WebSocketStompClient(new StandardWebSocketClient());
+        MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
+        // The context mapper knows java.time (OffsetDateTime in PostResponse)
+        converter.setObjectMapper(objectMapper);
+        client.setMessageConverter(converter);
+        return client;
+    }
+
+    @Test
+    @DisplayName("a new post via REST is broadcast to /topic/posts in real time")
+    void newPostIsBroadcastToSubscribers() throws Exception {
+        StompSession session = stompClient()
+                .connectAsync("ws://localhost:" + port + "/ws", new StompSessionHandlerAdapter() {})
+                .get(10, TimeUnit.SECONDS);
+
+        CompletableFuture<com.pulse.posts.post.dto.PostResponse> received = new CompletableFuture<>();
+        session.subscribe("/topic/posts", new StompFrameHandler() {
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return com.pulse.posts.post.dto.PostResponse.class;
+            }
+
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) {
+                received.complete((com.pulse.posts.post.dto.PostResponse) payload);
+            }
+        });
+        Thread.sleep(500);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(jwtService.generateToken(DANIELA_ID, "daniela", "danim"));
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/posts", HttpMethod.POST,
+                new HttpEntity<>("{\"message\":\"realtime post!\"}", headers), String.class);
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+
+        var event = received.get(10, TimeUnit.SECONDS);
+        assertThat(event.message()).isEqualTo("realtime post!");
+        assertThat(event.authorAlias()).isEqualTo("danim");
+
+        session.disconnect();
+    }
+
     @Test
     @DisplayName("a like via REST is broadcast to WebSocket subscribers in real time")
     void likeIsBroadcastToSubscribers() throws Exception {
-        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
-        stompClient.setMessageConverter(new MappingJackson2MessageConverter());
+        WebSocketStompClient stompClient = stompClient();
 
         StompSession session = stompClient
                 .connectAsync("ws://localhost:" + port + "/ws", new StompSessionHandlerAdapter() {})

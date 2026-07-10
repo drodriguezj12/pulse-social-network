@@ -38,6 +38,9 @@ public class SecurityConfig {
                         // WebSocket handshake is open: the channel only broadcasts like
                         // totals (public data); every mutation goes through REST + JWT.
                         .requestMatchers("/ws/**").permitAll()
+                        // Post images render via plain img tags (no Authorization
+                        // header possible); only image bytes are public.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/posts/*/image").permitAll()
                         .requestMatchers("/docs", "/docs/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info", "/actuator/metrics/**",
                                 "/actuator/metrics").permitAll()

@@ -10,5 +10,6 @@ public record PostResponse(
         String message,
         OffsetDateTime publishedAt,
         long likeCount,
-        boolean likedByMe) {
+        boolean likedByMe,
+        boolean hasImage) {
 }

@@ -1,5 +1,6 @@
 package com.pulse.posts;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pulse.posts.post.PostRepository;
 import com.pulse.posts.security.JwtService;
 import org.junit.jupiter.api.DisplayName;
@@ -7,7 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
@@ -17,7 +20,9 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -34,6 +39,9 @@ class PostsFlowIT extends AbstractIntegrationTest {
 
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private PostRepository postRepository;
@@ -159,6 +167,76 @@ class PostsFlowIT extends AbstractIntegrationTest {
                 "SELECT count(*) FROM posts.likes WHERE post_id = ? AND user_id = ?",
                 Integer.class, CARLOS_POST, MARIANA_ID);
         assertThat(stored).isZero();
+    }
+
+    @Test
+    @DisplayName("likes from DIFFERENT users accumulate: 1, then 2")
+    void likeCountAccumulatesAcrossUsers() throws Exception {
+        // fresh post so the assertion is deterministic regardless of test order
+        MvcResult created = mockMvc.perform(post("/posts")
+                        .header("Authorization", tokenFor(MARIANA_ID, "mariana", "marilo"))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"message\":\"count my likes\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String postId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .get("id").asText();
+
+        mockMvc.perform(post("/posts/" + postId + "/likes")
+                        .header("Authorization", tokenFor(CARLOS_ID, "carlos", "cgomez")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.likeCount").value(1));
+
+        UUID valentinaId = UUID.fromString("00000000-0000-0000-0000-000000000003");
+        mockMvc.perform(post("/posts/" + postId + "/likes")
+                        .header("Authorization", tokenFor(valentinaId, "valentina", "valen")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.likeCount").value(2));
+
+        Integer stored = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM posts.likes WHERE post_id = ?::uuid", Integer.class, postId);
+        assertThat(stored).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("a post with an image stores it, serves it publicly and flags hasImage in the feed")
+    void imageLifecycle() throws Exception {
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, 9, 9};
+        MvcResult created = mockMvc.perform(multipart("/posts")
+                        .file(new MockMultipartFile("image", "pic.png", "image/png", png))
+                        .param("message", "look at this photo")
+                        .header("Authorization", tokenFor(MARIANA_ID, "mariana", "marilo")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.hasImage").value(true))
+                .andReturn();
+        String postId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .get("id").asText();
+
+        // image readable WITHOUT a token (img tags cannot send Authorization)
+        mockMvc.perform(get("/posts/" + postId + "/image"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
+
+        // carlos sees the post flagged in his feed
+        mockMvc.perform(get("/posts").header("Authorization", tokenFor(CARLOS_ID, "carlos", "cgomez")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + postId + "')].hasImage").value(true));
+    }
+
+    @Test
+    @DisplayName("multipart post without image works; wrong attachment type returns 400")
+    void multipartValidation() throws Exception {
+        mockMvc.perform(multipart("/posts")
+                        .param("message", "text only via multipart")
+                        .header("Authorization", tokenFor(CARLOS_ID, "carlos", "cgomez")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.hasImage").value(false));
+
+        mockMvc.perform(multipart("/posts")
+                        .file(new MockMultipartFile("image", "notes.txt", "text/plain", "x".getBytes()))
+                        .param("message", "bad attachment")
+                        .header("Authorization", tokenFor(CARLOS_ID, "carlos", "cgomez")))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

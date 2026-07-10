@@ -11,6 +11,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.stream.Collectors;
@@ -51,6 +52,18 @@ public class GlobalExceptionHandler {
                                                          HttpServletRequest request) {
         // Malformed JSON or invalid encoding is a client error, never a 500.
         return build(HttpStatus.BAD_REQUEST, "Malformed request body (expected valid UTF-8 JSON)", request);
+    }
+
+    @ExceptionHandler(InvalidImageException.class)
+    public ResponseEntity<ApiError> handleInvalidImage(InvalidImageException e,
+                                                       HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, e.getMessage(), request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleUploadTooLarge(MaxUploadSizeExceededException e,
+                                                         HttpServletRequest request) {
+        return build(HttpStatus.PAYLOAD_TOO_LARGE, "Image exceeds the 2MB limit", request);
     }
 
     @ExceptionHandler(ResponseStatusException.class)

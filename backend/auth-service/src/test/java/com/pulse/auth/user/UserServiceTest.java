@@ -24,6 +24,9 @@ class UserServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private UserAvatarRepository avatarRepository;
+
     @InjectMocks
     private UserService userService;
 
@@ -33,6 +36,7 @@ class UserServiceTest {
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.of(new UserEntity(
                 id, "daniela", "hash", "Daniela", "Mora", LocalDate.of(1996, 9, 30), "danim")));
+        when(avatarRepository.existsById(id)).thenReturn(true);
 
         UserResponse profile = userService.getProfile(id);
 
@@ -40,6 +44,35 @@ class UserServiceTest {
         assertThat(profile.lastName()).isEqualTo("Mora");
         assertThat(profile.birthDate()).isEqualTo(LocalDate.of(1996, 9, 30));
         assertThat(profile.alias()).isEqualTo("danim");
+        assertThat(profile.hasAvatar()).isTrue();
+    }
+
+    @Test
+    @DisplayName("updateProfile changes display names only")
+    void updateProfileChangesNames() {
+        UUID id = UUID.randomUUID();
+        UserEntity user = new UserEntity(
+                id, "daniela", "hash", "Daniela", "Mora", LocalDate.of(1996, 9, 30), "danim");
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(avatarRepository.existsById(id)).thenReturn(false);
+
+        UserResponse updated = userService.updateProfile(id,
+                new com.pulse.auth.user.dto.UpdateProfileRequest("  Daniela Sofía ", "Mora Pérez"));
+
+        assertThat(updated.firstName()).isEqualTo("Daniela Sofía");
+        assertThat(updated.lastName()).isEqualTo("Mora Pérez");
+        assertThat(updated.username()).isEqualTo("daniela");
+        assertThat(updated.alias()).isEqualTo("danim");
+    }
+
+    @Test
+    @DisplayName("avatar with a non-image content type is rejected")
+    void avatarWrongTypeRejected() {
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "image", "notes.txt", "text/plain", "hello".getBytes());
+
+        assertThatThrownBy(() -> userService.saveAvatar(UUID.randomUUID(), file))
+                .isInstanceOf(com.pulse.auth.common.InvalidImageException.class);
     }
 
     @Test

@@ -52,6 +52,12 @@ public class UserEntity {
         this.alias = alias;
     }
 
+    /** Profile editing only touches display names; login identity stays immutable. */
+    public void updateNames(String firstName, String lastName) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+
     public UUID getId() {
         return id;
     }

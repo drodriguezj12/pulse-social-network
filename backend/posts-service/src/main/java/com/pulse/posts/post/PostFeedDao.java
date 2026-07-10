@@ -25,7 +25,8 @@ public class PostFeedDao {
             rs.getString("message"),
             rs.getObject("published_at", OffsetDateTime.class),
             rs.getLong("like_count"),
-            rs.getBoolean("liked_by_me"));
+            rs.getBoolean("liked_by_me"),
+            rs.getBoolean("has_image"));
 
     private final JdbcTemplate jdbcTemplate;
 

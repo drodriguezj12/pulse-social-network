@@ -3,6 +3,7 @@ package com.pulse.auth.auth;
 import com.pulse.auth.auth.dto.LoginResponse;
 import com.pulse.auth.common.InvalidCredentialsException;
 import com.pulse.auth.security.JwtService;
+import com.pulse.auth.user.UserAvatarRepository;
 import com.pulse.auth.user.UserEntity;
 import com.pulse.auth.user.UserRepository;
 import com.pulse.auth.user.dto.UserResponse;
@@ -18,11 +19,14 @@ public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
+    private final UserAvatarRepository avatarRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(UserRepository userRepository, UserAvatarRepository avatarRepository,
+                       PasswordEncoder passwordEncoder, JwtService jwtService) {
         this.userRepository = userRepository;
+        this.avatarRepository = avatarRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
@@ -42,6 +46,7 @@ public class AuthService {
 
         String token = jwtService.generateToken(user.getId(), user.getUsername(), user.getAlias());
         log.info("AUDIT login_success userId={} username={}", user.getId(), user.getUsername());
-        return new LoginResponse(token, "Bearer", jwtService.expirationMs(), UserResponse.from(user));
+        return new LoginResponse(token, "Bearer", jwtService.expirationMs(),
+                UserResponse.from(user, avatarRepository.existsById(user.getId())));
     }
 }

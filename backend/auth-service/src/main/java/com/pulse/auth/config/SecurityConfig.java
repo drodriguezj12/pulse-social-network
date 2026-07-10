@@ -38,6 +38,9 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/login").permitAll()
+                        // Avatars render via plain img tags (no Authorization header
+                        // possible); only image bytes are public, never profile data.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/users/*/avatar").permitAll()
                         .requestMatchers("/docs", "/docs/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info", "/actuator/metrics/**",
                                 "/actuator/metrics").permitAll()

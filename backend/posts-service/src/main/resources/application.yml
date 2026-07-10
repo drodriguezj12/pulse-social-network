@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: posts-service
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 3MB
   datasource:
     # escapeSyntaxCallMode=callIfNoReturn makes the JDBC {call ...} escape emit
     # CALL for the PL/pgSQL PROCEDUREs (sp_register_like / sp_remove_like).
