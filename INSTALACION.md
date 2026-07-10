@@ -93,15 +93,17 @@ El script independiente equivalente está en `db/seed.sql`.
    llenan las credenciales) e Ingresar. El backend responde un JWT que el
    frontend guarda y adjunta vía interceptor.
 2. **Publicaciones** — feed con las publicaciones de **otros** usuarios (las
-   propias no aparecen, como pide el enunciado), con total de likes y corazón
-   para dar/quitar like.
-3. **Tiempo real** — abre una segunda ventana (incógnito) con otro usuario y da
-   like: el contador se actualiza en **ambas** ventanas al instante, sin
+   propias no aparecen, como pide el enunciado), con foto del autor, imagen de
+   la publicación (si tiene), total de likes y corazón para dar/quitar like.
+3. **Tiempo real** — abre una segunda ventana (incógnito) con otro usuario:
+   los **likes** actualizan el contador en ambas ventanas al instante, y las
+   **publicaciones nuevas** aparecen solas en el feed del otro usuario, sin
    recargar (WebSocket STOMP → SignalStore → señal → render).
-4. **Crear publicación** — pestaña "Crear": solo el mensaje; la fecha la asigna
-   el servidor al guardar.
+4. **Crear publicación** — pestaña "Crear": mensaje y foto opcional
+   (JPEG/PNG/WebP hasta 2MB); la fecha la asigna el servidor al guardar.
 5. **Perfil** — clic en tu usuario (arriba a la derecha): nombres, apellidos,
-   fecha de nacimiento y alias desde `GET /users/me`.
+   fecha de nacimiento y alias desde `GET /users/me`. Desde ahí puedes **editar
+   tus nombres** y **subir tu foto de perfil** (clic sobre el avatar).
 
 ## 7. Stored procedures (requisito de BD)
 
@@ -128,10 +130,11 @@ mvn test     # unitarias (JUnit 5 + Mockito) — no requieren Docker
 mvn verify   # + integración (Testcontainers con PostgreSQL real)
 ```
 
-Resultados actuales: **auth-service 9 unitarias + 10 integración · posts-service
-5 unitarias + 12 integración** — incluyen la ejecución real de las stored
-procedures (idempotencia verificada contra la BD) y un cliente STOMP real que
-recibe el broadcast del like.
+Resultados actuales: **auth-service 11 unitarias + 12 integración · posts-service
+7 unitarias + 16 integración · frontend 18 specs (Karma/Jasmine)** — incluyen la
+ejecución real de las stored procedures (idempotencia verificada contra la BD),
+acumulación de likes entre usuarios distintos, el ciclo completo de imágenes y
+clientes STOMP reales que reciben los broadcasts de likes y publicaciones.
 
 ## 9. Estructura del repositorio
 
