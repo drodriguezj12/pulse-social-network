@@ -1,59 +1,53 @@
-# Pulse
+# Pulse — Frontend (Angular 19)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.27.
+SPA de la red social Pulse: login, perfil, feed con **likes en tiempo real** y
+creación de publicaciones. Diseño propio "señal en vivo" (ver `../DESIGN.md`).
 
-## Development server
+## Stack
 
-To start a local development server, run:
+- **Angular 19** standalone components, TypeScript estricto, rutas lazy.
+- **NgRx SignalStore** (`@ngrx/signals`) como **singleton** (`providedIn: 'root'`):
+  - `AuthStore` — usuario, token JWT, estado de sesión (persistida en localStorage).
+  - `PostsStore` — feed, likes optimistas y eventos del WebSocket.
+  - Los componentes consumen **solo signals** (`store.posts()`, `auth.user()`, …).
+- **@stomp/rx-stomp** — suscripción a `/topic/likes`; cada broadcast entra al
+  `PostsStore` y el contador pulsa en pantalla sin recargar.
+- Interceptor HTTP que adjunta el JWT + guard de rutas (`authGuard`).
+- nginx en producción: sirve la SPA y hace proxy de `/auth`, `/users`, `/posts` y `/ws`.
 
-```bash
-ng serve
+## Estructura
+
+```
+src/app/
+├── core/          # api services, interceptor, guards, ws.service, toasts, utils
+├── stores/        # auth.store.ts · posts.store.ts (SignalStore, root singletons)
+├── features/
+│   ├── login/     # formulario reactivo + chips de usuarios demo
+│   ├── feed/      # publicaciones de otros, like con burst + pulse en tiempo real
+│   ├── create-post/
+│   └── profile/
+└── shared/        # componente de toasts
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Desarrollo local
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Requiere los microservicios corriendo (por ejemplo `docker compose up` desde la raíz).
 
 ```bash
-ng generate component component-name
+npm install
+npm start          # ng serve con proxy (proxy.conf.json) hacia :8081/:8082
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Abre http://localhost:4200. El proxy evita CORS también en desarrollo.
+
+## Build de producción
 
 ```bash
-ng generate --help
+npm run build      # dist/pulse/browser
 ```
 
-## Building
-
-To build the project run:
+O con Docker (multi-stage: build Node → nginx):
 
 ```bash
-ng build
+docker build -t pulse-frontend .
 ```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
