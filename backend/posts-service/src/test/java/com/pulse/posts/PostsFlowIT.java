@@ -80,6 +80,29 @@ class PostsFlowIT extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("malformed body (invalid UTF-8) returns 400, never 500")
+    void malformedBodyRejected() throws Exception {
+        byte[] invalidUtf8 = {'{', '"', 'm', 'e', 's', 's', 'a', 'g', 'e', '"', ':', '"', (byte) 0xF3, 'n', '"', '}'};
+        mockMvc.perform(post("/posts")
+                        .header("Authorization", tokenFor(CARLOS_ID, "carlos", "cgomez"))
+                        .contentType(APPLICATION_JSON)
+                        .content(invalidUtf8))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    @DisplayName("UTF-8 accents and emoji are stored and returned intact")
+    void utf8ContentSupported() throws Exception {
+        mockMvc.perform(post("/posts")
+                        .header("Authorization", tokenFor(CARLOS_ID, "carlos", "cgomez"))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"message\":\"Acción y emoción ✨\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("Acción y emoción ✨"));
+    }
+
+    @Test
     @DisplayName("blank message fails Bean Validation with 400")
     void blankMessageRejected() throws Exception {
         mockMvc.perform(post("/posts")

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -43,6 +44,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({MissingServletRequestParameterException.class, MissingRequestHeaderException.class})
     public ResponseEntity<ApiError> handleMissingInput(Exception e, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, e.getMessage(), request);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableBody(HttpMessageNotReadableException e,
+                                                         HttpServletRequest request) {
+        // Malformed JSON or invalid encoding is a client error, never a 500.
+        return build(HttpStatus.BAD_REQUEST, "Malformed request body (expected valid UTF-8 JSON)", request);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
