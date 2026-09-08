@@ -23,6 +23,7 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 import java.lang.reflect.Type;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +45,7 @@ class LikeRealtimeIT {
         registry.add("spring.datasource.url", AbstractIntegrationTest::jdbcUrlWithCallMode);
         registry.add("spring.datasource.username", AbstractIntegrationTest.POSTGRES::getUsername);
         registry.add("spring.datasource.password", AbstractIntegrationTest.POSTGRES::getPassword);
+        registry.add("security.jwt.secret", () -> AbstractIntegrationTest.TEST_JWT_SECRET);
     }
 
     @LocalServerPort
@@ -100,6 +102,43 @@ class LikeRealtimeIT {
         assertThat(event.message()).isEqualTo("realtime post!");
         assertThat(event.authorAlias()).isEqualTo("danim");
 
+        session.disconnect();
+    }
+
+    @Test
+    @DisplayName("deleting a post is broadcast to /topic/posts-deleted so open feeds drop the card")
+    void deletedPostIsBroadcastToSubscribers() throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(jwtService.generateToken(DANIELA_ID, "daniela", "danim"));
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+        ResponseEntity<String> created = restTemplate.exchange(
+                "/posts", HttpMethod.POST,
+                new HttpEntity<>("{\"message\":\"about to be deleted\"}", headers), String.class);
+        String postId = objectMapper.readTree(created.getBody()).get("id").asText();
+
+        StompSession session = stompClient()
+                .connectAsync("ws://localhost:" + port + "/ws", new StompSessionHandlerAdapter() {})
+                .get(10, TimeUnit.SECONDS);
+
+        CompletableFuture<Map<String, String>> received = new CompletableFuture<>();
+        session.subscribe("/topic/posts-deleted", new StompFrameHandler() {
+            @Override
+            public Type getPayloadType(StompHeaders stompHeaders) {
+                return Map.class;
+            }
+
+            @SuppressWarnings("unchecked")
+            @Override
+            public void handleFrame(StompHeaders stompHeaders, Object payload) {
+                received.complete((Map<String, String>) payload);
+            }
+        });
+        Thread.sleep(500);
+
+        restTemplate.exchange("/posts/" + postId, HttpMethod.DELETE,
+                new HttpEntity<>(headers), Void.class);
+
+        assertThat(received.get(10, TimeUnit.SECONDS)).containsEntry("postId", postId);
         session.disconnect();
     }
 

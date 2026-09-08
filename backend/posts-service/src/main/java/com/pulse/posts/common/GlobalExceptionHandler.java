@@ -1,6 +1,8 @@
 package com.pulse.posts.common;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,17 @@ public class GlobalExceptionHandler {
                                                      HttpServletRequest request) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .map(f -> f.getField() + ": " + f.getDefaultMessage())
+                .sorted()
+                .collect(Collectors.joining("; "));
+        return build(HttpStatus.BAD_REQUEST, message, request);
+    }
+
+    /** Constraint violations on @RequestParam / @PathVariable of a @Validated controller. */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiError> handleConstraintViolation(ConstraintViolationException e,
+                                                              HttpServletRequest request) {
+        String message = e.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
                 .sorted()
                 .collect(Collectors.joining("; "));
         return build(HttpStatus.BAD_REQUEST, message, request);

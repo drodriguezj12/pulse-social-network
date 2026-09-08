@@ -1,16 +1,24 @@
 package com.pulse.posts.post;
 
 import com.pulse.posts.post.dto.CreatePostRequest;
+import com.pulse.posts.post.dto.FeedCursor;
+import com.pulse.posts.post.dto.PostPage;
 import com.pulse.posts.post.dto.PostResponse;
 import com.pulse.posts.security.AuthenticatedUser;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,11 +30,11 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/posts")
+@Validated
 @Tag(name = "Posts", description = "Feed and post creation (text, optionally with an image)")
 public class PostController {
 
@@ -37,11 +45,17 @@ public class PostController {
     }
 
     @GetMapping
-    @Operation(summary = "List feed posts",
-            description = "Feed of posts from every user, newest first, "
-                    + "with like totals and whether the current user liked each post.")
-    public List<PostResponse> feed(@AuthenticationPrincipal AuthenticatedUser user) {
-        return postService.getFeed(user);
+    @Operation(summary = "Read a page of the feed",
+            description = "Posts from every user, newest first, with like totals and whether the "
+                    + "current user liked each one. Pagination is cursor based: pass the "
+                    + "nextCursor returned by the previous page. A null nextCursor means the end.")
+    public PostPage feed(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @Parameter(description = "Page size, 1 to 50")
+            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int limit,
+            @Parameter(description = "nextCursor from the previous page; omit for the first page")
+            @RequestParam(required = false) String cursor) {
+        return postService.getFeed(user, cursor == null ? null : FeedCursor.decode(cursor), limit);
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -58,12 +72,12 @@ public class PostController {
             description = "Multipart parts: 'message' (text) and optional 'image' (JPEG/PNG/WebP up to 2MB).")
     public ResponseEntity<PostResponse> createWithImage(
             @AuthenticationPrincipal AuthenticatedUser user,
-            @RequestParam("message") String message,
+            @RequestParam("message")
+            @NotBlank(message = "message is required")
+            @Size(max = 500, message = "message must be at most 500 characters") String message,
             @RequestParam(value = "image", required = false) MultipartFile image) {
-        CreatePostRequest request = new CreatePostRequest(message);
-        validate(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(postService.create(user, request, image));
+                .body(postService.create(user, new CreatePostRequest(message), image));
     }
 
     /**
@@ -83,22 +97,20 @@ public class PostController {
 
     @DeleteMapping("/{postId}")
     @Operation(summary = "Delete one of the authenticated user's posts",
-            description = "Only the author of a post can delete it.")
+            description = "Only the author can delete a post. The removal is broadcast to "
+                    + "/topic/posts-deleted so open feeds drop the card immediately.")
     public ResponseEntity<Void> delete(@AuthenticationPrincipal AuthenticatedUser user,
                                        @PathVariable UUID postId) {
         postService.delete(user, postId);
         return ResponseEntity.noContent().build();
     }
 
-    /** Manual Bean Validation for the multipart variant (no @RequestBody there). */
-    private void validate(CreatePostRequest request) {
-        try (var factory = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
-            var violations = factory.getValidator().validate(request);
-            if (!violations.isEmpty()) {
-                throw new org.springframework.web.server.ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        violations.iterator().next().getMessage());
-            }
-        }
+    @PostMapping("/author-alias")
+    @Operation(summary = "Sync the caller's denormalized alias onto their posts",
+            description = "Called after renaming the profile in auth-service. Idempotent: the alias "
+                    + "comes from the JWT, so replaying it changes nothing.")
+    public ResponseEntity<Void> syncAuthorAlias(@AuthenticationPrincipal AuthenticatedUser user) {
+        postService.syncAuthorAlias(user);
+        return ResponseEntity.noContent().build();
     }
 }

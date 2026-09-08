@@ -28,10 +28,14 @@ public abstract class AbstractIntegrationTest {
         return url + (url.contains("?") ? "&" : "?") + "escapeSyntaxCallMode=callIfNoReturn";
     }
 
+    /** The application requires JWT_SECRET; tests supply their own. */
+    public static final String TEST_JWT_SECRET = "integration-test-secret-0123456789-0123456789";
+
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", AbstractIntegrationTest::jdbcUrlWithCallMode);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("security.jwt.secret", () -> TEST_JWT_SECRET);
     }
 }

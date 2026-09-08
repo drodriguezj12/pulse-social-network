@@ -1,5 +1,6 @@
 package com.pulse.posts;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pulse.posts.post.PostRepository;
 import com.pulse.posts.security.JwtService;
@@ -12,10 +13,13 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -53,23 +57,91 @@ class PostsFlowIT extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("seeder creates one post per demo user")
+    @DisplayName("seeder fills the feed with posts and likes")
     void seederRan() {
-        assertThat(postRepository.count()).isGreaterThanOrEqualTo(5);
+        assertThat(postRepository.count()).isGreaterThanOrEqualTo(24);
+        Integer likes = jdbcTemplate.queryForObject("SELECT count(*) FROM posts.likes", Integer.class);
+        assertThat(likes).isPositive();
     }
 
     @Test
     @DisplayName("feed includes the requesting user's own posts")
     void feedIncludesOwnPosts() throws Exception {
-        mockMvc.perform(get("/posts")
+        mockMvc.perform(get("/posts").param("limit", "50")
                         .header("Authorization", tokenFor(MARIANA_ID, "mariana", "marilo")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == '" + MARIANA_POST + "')].authorId").value(MARIANA_ID.toString()))
-                .andExpect(jsonPath("$[?(@.id == '" + MARIANA_POST + "')].authorAlias").value("marilo"))
-                .andExpect(jsonPath("$.length()", greaterThanOrEqualTo(5)))
-                .andExpect(jsonPath("$[0].likeCount").isNumber())
-                .andExpect(jsonPath("$[0].likedByMe").isBoolean())
-                .andExpect(jsonPath("$[0].publishedAt").isNotEmpty());
+                .andExpect(jsonPath("$.items[?(@.id == '" + MARIANA_POST + "')].authorId").value(MARIANA_ID.toString()))
+                .andExpect(jsonPath("$.items[?(@.id == '" + MARIANA_POST + "')].authorAlias").value("marilo"))
+                .andExpect(jsonPath("$.items.length()", greaterThanOrEqualTo(5)))
+                .andExpect(jsonPath("$.items[0].likeCount").isNumber())
+                .andExpect(jsonPath("$.items[0].likedByMe").isBoolean())
+                .andExpect(jsonPath("$.items[0].publishedAt").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("feed is cursor paginated: pages do not overlap and the cursor ends at null")
+    void feedPaginatesWithCursor() throws Exception {
+        String token = tokenFor(MARIANA_ID, "mariana", "marilo");
+        Set<String> seen = new LinkedHashSet<>();
+        String cursor = null;
+        int pages = 0;
+
+        do {
+            var request = get("/posts").param("limit", "5").header("Authorization", token);
+            if (cursor != null) {
+                request = request.param("cursor", cursor);
+            }
+            MvcResult result = mockMvc.perform(request)
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.items.length()", lessThanOrEqualTo(5)))
+                    .andReturn();
+
+            JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+            for (JsonNode item : body.get("items")) {
+                // A post must never appear on two pages
+                assertThat(seen.add(item.get("id").asText())).isTrue();
+            }
+            cursor = body.get("nextCursor").isNull() ? null : body.get("nextCursor").asText();
+            pages++;
+        } while (cursor != null && pages < 30);
+
+        assertThat(cursor).isNull();                 // walked to the end
+        assertThat(pages).isGreaterThan(1);          // more than one page exists
+        assertThat(seen).hasSize((int) postRepository.count());
+    }
+
+    @Test
+    @DisplayName("a malformed cursor and an out-of-range limit are rejected with 400")
+    void feedRejectsBadPagingParameters() throws Exception {
+        String token = tokenFor(MARIANA_ID, "mariana", "marilo");
+
+        mockMvc.perform(get("/posts").param("cursor", "not-a-cursor").header("Authorization", token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid cursor"));
+
+        mockMvc.perform(get("/posts").param("limit", "500").header("Authorization", token))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/posts").param("limit", "0").header("Authorization", token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("syncing the author alias rewrites the caller's denormalized alias")
+    void syncAuthorAlias() throws Exception {
+        mockMvc.perform(post("/posts/author-alias")
+                        .header("Authorization", tokenFor(MARIANA_ID, "mariana", "renamed_marilo")))
+                .andExpect(status().isNoContent());
+
+        String alias = jdbcTemplate.queryForObject(
+                "SELECT DISTINCT author_alias FROM posts.posts WHERE author_id = ?",
+                String.class, MARIANA_ID);
+        assertThat(alias).isEqualTo("renamed_marilo");
+
+        // restore, so tests that assert on the seeded alias stay independent
+        mockMvc.perform(post("/posts/author-alias")
+                        .header("Authorization", tokenFor(MARIANA_ID, "mariana", "marilo")))
+                .andExpect(status().isNoContent());
     }
 
     @Test
@@ -140,9 +212,9 @@ class PostsFlowIT extends AbstractIntegrationTest {
         assertThat(stored).isEqualTo(1);
 
         // liked post is flagged in the feed read through the stored function
-        mockMvc.perform(get("/posts").header("Authorization", carlos))
+        mockMvc.perform(get("/posts").param("limit", "50").header("Authorization", carlos))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == '" + MARIANA_POST + "')].likedByMe").value(true));
+                .andExpect(jsonPath("$.items[?(@.id == '" + MARIANA_POST + "')].likedByMe").value(true));
 
         // cleanup so other tests see a deterministic state
         mockMvc.perform(delete("/posts/" + MARIANA_POST + "/likes").header("Authorization", carlos))
@@ -193,7 +265,7 @@ class PostsFlowIT extends AbstractIntegrationTest {
         mockMvc.perform(delete("/posts/" + MARIANA_POST)
                         .header("Authorization", tokenFor(CARLOS_ID, "carlos", "cgomez")))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Solo puedes eliminar tus propias publicaciones"));
+                .andExpect(jsonPath("$.message").value("You can only delete your own posts"));
 
         assertThat(postRepository.existsById(MARIANA_POST)).isTrue();
     }
@@ -247,9 +319,10 @@ class PostsFlowIT extends AbstractIntegrationTest {
                 .andExpect(header().string("Content-Type", "image/png"));
 
         // carlos sees the post flagged in his feed
-        mockMvc.perform(get("/posts").header("Authorization", tokenFor(CARLOS_ID, "carlos", "cgomez")))
+        mockMvc.perform(get("/posts").param("limit", "50")
+                        .header("Authorization", tokenFor(CARLOS_ID, "carlos", "cgomez")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == '" + postId + "')].hasImage").value(true));
+                .andExpect(jsonPath("$.items[?(@.id == '" + postId + "')].hasImage").value(true));
     }
 
     @Test
