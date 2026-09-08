@@ -1,16 +1,58 @@
-# Pulse — Red social en tiempo real
+# Pulse — Real-time social network
 
-Prueba técnica Full Stack (Angular + Java) · **Java 21 · Spring Boot 3.3 · Angular 19 · PostgreSQL 16 · Docker**
+[![CI](https://github.com/drodriguezj12/pulse-social-network/actions/workflows/ci.yml/badge.svg)](https://github.com/drodriguezj12/pulse-social-network/actions/workflows/ci.yml)
+![Java](https://img.shields.io/badge/Java-21-orange)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-6DB33F)
+![Angular](https://img.shields.io/badge/Angular-19-DD0031)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-Pulse es una red social con arquitectura de microservicios: autenticación JWT,
-perfiles con **foto y alias editable**, publicaciones **con imagen opcional**, y
-**tiempo real** vía WebSocket (STOMP): tanto los likes como las publicaciones nuevas
-aparecen en todos los navegadores conectados sin recargar. Todo el stack se levanta
-con un solo comando de Docker Compose.
+A social network built as two Spring Boot microservices and an Angular SPA, where
+**likes and new posts propagate to every connected browser in real time** over
+WebSocket/STOMP. Users sign in with JWT, edit their profile and avatar, publish
+posts with images, and delete their own content.
+
+The whole stack — database, both services and the frontend — starts with a single
+`docker compose up --build`.
+
+> The user interface is in Spanish; the codebase, comments and documentation are in English.
 
 ---
 
-## Arquitectura
+## See it running
+
+**Two browsers, side by side.** The window on the right clicks the like; the counter
+on the left moves on its own. No polling, no reload — a STOMP frame lands and the
+SignalStore updates every open feed:
+
+![Real-time likes propagating between two browsers](docs/screenshots/realtime.gif)
+
+| Feed — glass cards, avatars, live like counts | Composing a post with an image |
+|---|---|
+| ![Feed](docs/screenshots/feed.png) | ![Create post](docs/screenshots/create-post.png) |
+
+| Profile — editable alias and avatar | Sign in with the seeded demo users |
+|---|---|
+| ![Profile](docs/screenshots/profile.png) | ![Sign in](docs/screenshots/login.png) |
+
+---
+
+## What this project demonstrates
+
+- **Microservice boundaries that hold up.** Two services, two database schemas, zero
+  runtime calls between them — identity travels inside a self-contained JWT.
+- **PostgreSQL beyond CRUD.** Real PL/pgSQL `PROCEDURE`s invoked with `CALL` from
+  JDBC, a set-returning `FUNCTION` for the feed, and idempotency enforced at the
+  database level.
+- **Real-time UX.** STOMP over WebSocket driving an NgRx SignalStore, with optimistic
+  updates reconciled against the server's authoritative count.
+- **Tests that prove the hard parts.** 74 tests, including integration tests that run
+  the stored procedures against a real PostgreSQL (Testcontainers) and a real STOMP
+  client that waits for the broadcast frame.
+- **Reproducible delivery.** Multi-stage Docker images, health-gated Compose startup,
+  Flyway-owned schema, CI on every push.
+
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -33,42 +75,44 @@ flowchart LR
     POSTS -->|"schema posts"| DB
 ```
 
-- **auth-service** (`:8081`): login JWT y perfiles (propio y de otros usuarios).
-  Dueño exclusivo del schema `auth`.
-- **posts-service** (`:8082`): publicaciones, likes (stored procedures PL/pgSQL) y
-  difusión en tiempo real por WebSocket. Dueño exclusivo del schema `posts`.
-- **frontend** (`:4200`): SPA Angular servida por nginx, que además hace proxy de
-  API y WebSocket — un solo origen, sin CORS.
-- **PostgreSQL**: una instancia, dos schemas independientes (uno por servicio),
-  migraciones con Flyway por servicio.
+- **auth-service** (`:8081`) — JWT login, own profile and read-only profiles of other
+  users, avatar upload. Sole owner of the `auth` schema.
+- **posts-service** (`:8082`) — posts with optional images, likes backed by PL/pgSQL
+  stored procedures, author-only deletion, and WebSocket broadcasting. Sole owner of
+  the `posts` schema.
+- **frontend** (`:4200`) — the Angular SPA served by nginx, which also proxies the API
+  and the WebSocket so the browser talks to a single origin (no CORS).
+- **PostgreSQL** — one instance, two independent schemas, one Flyway migration history
+  per service.
 
-## Ejecución (un comando)
+## Quick start
 
-Requisitos: Docker Desktop (o Docker Engine + Compose v2). Nada más — Java, Maven,
-Node y Angular solo hacen falta para desarrollo local.
+Requirements: Docker Desktop (or Docker Engine + Compose v2). Java, Maven and Node are
+only needed for local development.
 
 ```bash
+git clone https://github.com/drodriguezj12/pulse-social-network.git
+cd pulse-social-network
 docker compose up --build
 ```
 
-Primer arranque: ~3–6 min (descarga imágenes y dependencias). Cuando termine:
+First run takes ~3–6 minutes (pulling images and dependencies). Then:
 
-| Servicio | URL |
+| Service | URL |
 |---|---|
-| **Aplicación (frontend)** | http://localhost:4200 |
-| Swagger auth-service | http://localhost:8081/docs |
-| Swagger posts-service | http://localhost:8082/docs |
-| Salud / métricas auth | http://localhost:8081/actuator/health · /actuator/metrics |
-| Salud / métricas posts | http://localhost:8082/actuator/health · /actuator/metrics |
+| **Application** | http://localhost:4200 |
+| Swagger — auth-service | http://localhost:8081/docs |
+| Swagger — posts-service | http://localhost:8082/docs |
+| Health / metrics | http://localhost:8081/actuator/health · http://localhost:8082/actuator/health |
 
-Para detener todo: `docker compose down` (agrega `-v` para borrar también la base de datos).
+Stop everything with `docker compose down` (add `-v` to wipe the database).
 
-## Usuarios demo (seeder)
+### Demo users
 
-Al iniciar, `auth-service` crea 5 usuarios (BCrypt) y `posts-service` una publicación
-por usuario. El mismo contenido está en [`db/seed.sql`](db/seed.sql) como entregable.
+On startup, `auth-service` seeds five BCrypt users and `posts-service` one post each.
+The same data ships as a standalone script in [`db/seed.sql`](db/seed.sql).
 
-| Usuario | Clave | Alias |
+| Username | Password | Alias |
 |---|---|---|
 | `mariana` | `Pulse2026!` | @marilo |
 | `carlos` | `Pulse2026!` | @cgomez |
@@ -76,130 +120,133 @@ por usuario. El mismo contenido está en [`db/seed.sql`](db/seed.sql) como entre
 | `andres` | `Pulse2026!` | @atorres |
 | `daniela` | `Pulse2026!` | @danim |
 
-**Demo de tiempo real**: abre http://localhost:4200 en dos navegadores (o una ventana
-normal y una de incógnito), inicia sesión con dos usuarios distintos y da like a una
-publicación — el contador se actualiza en ambos al instante, sin recargar. Las
-publicaciones nuevas también aparecen solas en los feeds abiertos.
+**To see the real-time behaviour**, open http://localhost:4200 in two browsers (or a
+normal and an incognito window), sign in as two different users and put them side by
+side. Liking a post moves the counter in both windows; publishing a post makes it
+appear in the other feed instantly.
 
-## Decisiones técnicas
+## Technical decisions
 
-### Login con GET (enunciado) vs POST (buena práctica)
-El enunciado pide literalmente `login con JWT (GET)`. Se implementaron **ambos**:
-`POST /auth/login` (recomendado: las credenciales viajan en el body) y
-`GET /auth/login` para cumplimiento literal, aceptando credenciales por query params
-o por headers `X-Username` / `X-Password`. Un GET con credenciales en la URL las
-expone en logs de servidores/proxies e historial del navegador; por eso el frontend
-usa el POST y el GET queda documentado en Swagger.
+### PROCEDURE vs FUNCTION in PostgreSQL
 
-### PROCEDURE vs FUNCTION en PostgreSQL (mínimo 2 PROCEDURE)
-PostgreSQL distingue `PROCEDURE` (PG11+, se invoca con `CALL`, admite `INOUT`) de
-`FUNCTION` (retorna valores/filas y se usa en consultas). Como retornar result sets
-desde una PROCEDURE es poco práctico, el diseño usa **las tres rutinas** donde cada
-una es idiomática:
+PostgreSQL distinguishes `PROCEDURE` (PG11+, invoked with `CALL`, supports `INOUT`
+parameters) from `FUNCTION` (returns values or rows, used inside queries). Returning a
+result set from a procedure is impractical, so each routine uses the idiomatic form:
 
-| Rutina | Tipo | Invocación desde Java |
+| Routine | Type | Invoked from Java as |
 |---|---|---|
-| `sp_register_like(post, user, INOUT total)` | **PROCEDURE** | `CallableStatement` con `{call ...}` |
-| `sp_remove_like(post, user, INOUT total)` | **PROCEDURE** | `CallableStatement` con `{call ...}` |
+| `sp_register_like(post, user, INOUT total)` | **PROCEDURE** | `CallableStatement` with `{call ...}` |
+| `sp_remove_like(post, user, INOUT total)` | **PROCEDURE** | `CallableStatement` with `{call ...}` |
 | `sp_get_posts_with_likes(current_user)` | FUNCTION (`RETURNS TABLE`) | `SELECT * FROM ...` |
 
-Detalle importante: el datasource de posts-service lleva
-`escapeSyntaxCallMode=callIfNoReturn` para que el driver JDBC emita `CALL`
-(procedure) y no `SELECT` (function). La ejecución real de las procedures está
-cubierta por tests de integración.
+One subtlety worth knowing: the PostgreSQL JDBC driver translates the `{call ...}`
+escape into `SELECT` by default, which fails against a procedure. The datasource URL
+carries `escapeSyntaxCallMode=callIfNoReturn` so the driver emits `CALL` instead.
+Integration tests execute the procedures for real, so this stays honest.
 
-### Idempotencia de likes
-Doble garantía: clave primaria compuesta `(post_id, user_id)` en la tabla `likes` +
-`INSERT ... ON CONFLICT DO NOTHING` dentro de `sp_register_like`. Dar like dos veces
-no duplica y retorna el mismo total. El contador crece cuando usuarios **distintos**
-dan like (un usuario = máximo un like por publicación).
+### Like idempotency, enforced twice
 
-### JWT HS256 con secreto compartido
-`auth-service` emite el token; `posts-service` lo valida con el mismo secreto
-(variable de entorno `JWT_SECRET`). Así cada request se autoriza sin llamadas entre
-servicios. En producción se rotaría a RS256 + JWKS; para este alcance sería
-sobre-ingeniería (trade-off documentado).
+A composite primary key `(post_id, user_id)` on the `likes` table makes a duplicate
+like physically impossible, and `INSERT ... ON CONFLICT DO NOTHING` inside
+`sp_register_like` makes a repeated request a no-op that still returns the correct
+total. One user counts once; the counter grows when *different* users like a post.
 
-### Sin acoplamiento entre microservicios
-`posts-service` guarda `author_alias` **denormalizado** (tomado del JWT al crear la
-publicación): el feed nunca llama a `auth-service`. Al cargar el feed, el servicio
-sincroniza el alias denormalizado del usuario actual con el de su token, de modo que
-un cambio de alias se refleja en sus publicaciones. No hay FK entre schemas — cada
-servicio es dueño absoluto de sus datos y podría extraerse a su propia base sin
-cambios de código.
+### Stateless JWT, no inter-service calls
 
-### WebSocket de solo difusión
-El handshake de `/ws` es abierto: por ese canal **solo se difunden** totales de likes
-y publicaciones nuevas (datos que cualquier usuario autenticado ve igual en el feed);
-toda mutación pasa por REST con JWT.
+`auth-service` issues an HS256 token carrying `sub`, `username` and `alias`;
+`posts-service` validates it with the same shared secret. No service-to-service call
+is ever made to authorize a request. RS256 with JWKS would be the next step once more
+services join — for two services it would be overhead.
 
-### Monorepo separable
-`backend/` y `frontend/` son proyectos 100% independientes (build, Docker y README
-propios). Pueden subirse como un solo repositorio o dividirse en dos sin tocar nada.
+### Denormalized alias with lazy synchronization
+
+Posts store `author_alias` denormalized from the JWT, so rendering the feed never
+requires a call to `auth-service`. When a user edits their alias, `PUT /users/me`
+re-issues the JWT with the new value, and the next feed load runs an `UPDATE` that
+syncs the alias on that user's existing posts. The token carries the change; no broker
+or distributed transaction needed.
+
+### Images in the database, deliberately
+
+Avatars and post images live as `BYTEA` in dedicated tables (`user_avatars`,
+`post_images`), so loading a user or listing the feed never drags image bytes into
+memory. This keeps the deployment to a single `docker compose up` with no object
+storage to provision. At real volume the exchange is a well-understood one: swap the
+image repository for an S3/MinIO client — nothing else in the codebase changes.
+
+The read endpoints are public on purpose: `<img>` tags cannot attach an
+`Authorization` header. Only image bytes are exposed, addressed by UUID; profile data
+and the feed stay behind the JWT.
+
+### Broadcast-only WebSocket
+
+The `/ws` handshake is open because the channel only *broadcasts* information any
+authenticated user already sees in the feed: like totals and new posts. Every mutation
+goes through REST with a JWT. Securing the handshake (token in the CONNECT frame)
+would be the hardening step if the channel ever carried private data.
+
+### Separable monorepo
+
+`backend/` and `frontend/` are fully independent projects with their own builds,
+Docker images and READMEs. They can stay in one repository or be split into two
+without touching a line of code.
 
 ## API
 
 ### auth-service (`:8081`)
 
 ```bash
-# Login (recomendado)
+# Login
 curl -s -X POST http://localhost:8081/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"mariana","password":"Pulse2026!"}'
 
-# Login GET — cumplimiento literal del enunciado (query params o headers)
-curl -s "http://localhost:8081/auth/login?username=mariana&password=Pulse2026!"
-curl -s http://localhost:8081/auth/login -H "X-Username: mariana" -H "X-Password: Pulse2026!"
-
-# Perfil del usuario autenticado
 TOKEN=$(curl -s -X POST http://localhost:8081/auth/login -H "Content-Type: application/json" \
   -d '{"username":"mariana","password":"Pulse2026!"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+
+# Own profile / another user's profile (read-only)
 curl -s http://localhost:8081/users/me -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8081/users/00000000-0000-0000-0000-000000000002 -H "Authorization: Bearer $TOKEN"
 
-# Ver el perfil de otro usuario (solo lectura)
-curl -s http://localhost:8081/users/00000000-0000-0000-0000-000000000002 \
-  -H "Authorization: Bearer $TOKEN"
-
-# Editar alias del perfil (username y nombre real son inmutables por diseño)
+# Edit alias (re-issues the JWT); username and real names are immutable
 curl -s -X PUT http://localhost:8081/users/me -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -d '{"alias":"mariana_live"}'
 
-# Subir foto de perfil (JPEG/PNG/WebP, máx 2MB) y leerla (pública, para tags img)
+# Upload an avatar (JPEG/PNG/WebP, max 2MB) and read it back (public, for img tags)
 curl -s -X PUT http://localhost:8081/users/me/avatar -H "Authorization: Bearer $TOKEN" \
-  -F "image=@foto.png;type=image/png"
+  -F "image=@photo.png;type=image/png"
 curl -s http://localhost:8081/users/00000000-0000-0000-0000-000000000001/avatar -o avatar.png
 ```
+
+`GET /auth/login` is also available, accepting credentials as query parameters or as
+`X-Username` / `X-Password` headers. `POST` is the one the frontend uses: credentials
+in a URL leak into access logs, proxies and browser history.
 
 ### posts-service (`:8082`)
 
 ```bash
-# Feed: publicaciones de todos los usuarios con total de likes (vía sp_get_posts_with_likes)
+# Feed, with like totals and whether the current user liked each post
 curl -s http://localhost:8082/posts -H "Authorization: Bearer $TOKEN"
 
-# Crear publicación (fecha asignada por el servidor al guardar)
+# Create a post — publication date is assigned server-side on save
 curl -s -X POST http://localhost:8082/posts \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"message":"Hola Pulse!"}'
+  -d '{"message":"Hello Pulse!"}'
 
-# Crear publicación CON imagen (multipart; JPEG/PNG/WebP máx 2MB) y leer la imagen
+# Create a post with an image (multipart, max 2MB) and read the image back
 curl -s -X POST http://localhost:8082/posts -H "Authorization: Bearer $TOKEN" \
-  -F "message=Con foto" -F "image=@foto.png;type=image/png"
+  -F "message=With a photo" -F "image=@photo.png;type=image/png"
 curl -s http://localhost:8082/posts/{postId}/image -o post.png
 
-# Eliminar una publicación propia (las ajenas responden 403)
-curl -s -X DELETE http://localhost:8082/posts/{postId} \
-  -H "Authorization: Bearer $TOKEN"
+# Like (idempotent) and unlike — both broadcast the new total over WebSocket
+curl -s -X POST   http://localhost:8082/posts/{postId}/likes -H "Authorization: Bearer $TOKEN"
+curl -s -X DELETE http://localhost:8082/posts/{postId}/likes -H "Authorization: Bearer $TOKEN"
 
-# Dar like (idempotente, vía sp_register_like) — difunde el total por WebSocket
-curl -s -X POST http://localhost:8082/posts/10000000-0000-0000-0000-000000000002/likes \
-  -H "Authorization: Bearer $TOKEN"
-
-# Quitar like (vía sp_remove_like)
-curl -s -X DELETE http://localhost:8082/posts/10000000-0000-0000-0000-000000000002/likes \
-  -H "Authorization: Bearer $TOKEN"
+# Delete your own post (someone else's returns 403)
+curl -s -X DELETE http://localhost:8082/posts/{postId} -H "Authorization: Bearer $TOKEN"
 ```
 
-Errores consistentes en ambos servicios (`@RestControllerAdvice`):
+Both services return consistent errors through `@RestControllerAdvice`:
 
 ```json
 { "timestamp": "…", "status": 404, "error": "Not Found", "message": "Post not found", "path": "/posts/…/likes" }
@@ -207,44 +254,56 @@ Errores consistentes en ambos servicios (`@RestControllerAdvice`):
 
 ### WebSocket
 
-Endpoint STOMP: `ws://localhost:8082/ws` (o `ws://localhost:4200/ws` vía nginx).
+STOMP endpoint: `ws://localhost:8082/ws` (or `ws://localhost:4200/ws` through nginx).
 
-| Tópico | Payload | Cuándo |
+| Topic | Payload | Emitted when |
 |---|---|---|
-| `/topic/likes` | `{ "postId": "…", "likeCount": 3 }` | Cada like/unlike |
-| `/topic/posts` | la publicación completa (`PostResponse`) | Cada publicación nueva — los feeds abiertos la muestran al instante |
+| `/topic/likes` | `{ "postId": "…", "likeCount": 3 }` | Any like or unlike |
+| `/topic/posts` | the full `PostResponse` | A post is created |
 
 ## Tests
 
-Backend (por servicio, desde `backend/auth-service` o `backend/posts-service`):
+74 tests in total: 20 backend unit tests, 32 backend integration tests and 22 frontend
+specs.
 
 ```bash
-mvn test     # unitarios (JUnit 5 + Mockito), sin Docker
-mvn verify   # + integración (Testcontainers + PostgreSQL real; requiere Docker)
+# Backend — from backend/auth-service or backend/posts-service
+mvn test     # unit tests (JUnit 5 + Mockito), no Docker required
+mvn verify   # + integration tests (Testcontainers with a real PostgreSQL)
+
+# Frontend — from frontend/
+npm run test:ci
 ```
 
-Cobertura de integración destacada: flujo completo de login y perfiles, feed con
-publicaciones de toda la comunidad, **ejecución real de las stored procedures**
-(idempotencia del like verificada contra la BD), acumulación de likes entre
-usuarios distintos, ciclo completo de imágenes (subida multipart, lectura pública,
-validación de tipo), borrado con autorización por autor y **clientes STOMP reales**
-que reciben los broadcasts de likes y de publicaciones nuevas.
+Integration tests cover the parts that would be dishonest to mock: Flyway migrations,
+the stored procedures executing for real (a like sent twice leaves exactly one row),
+like counts accumulating across different users, the full image lifecycle, author-only
+deletion, and STOMP clients that connect and wait for the actual broadcast frames.
 
-Frontend: `npm test -- --watch=false --browsers=ChromeHeadless` (22 specs Karma/Jasmine:
-stores, guards, pipes, likes optimistas con reversión y llegada de posts por WebSocket).
+Unit tests use Mockito against in-memory doubles; H2 was deliberately not used, since
+it cannot execute PL/pgSQL and a test that skips the procedures would prove nothing.
 
-## Estructura
+## Project structure
 
 ```
-├── docker-compose.yml        # Postgres + 2 microservicios + frontend
-├── db/seed.sql               # usuarios y publicaciones predefinidos (entregable)
+├── docker-compose.yml        # PostgreSQL + both services + frontend
+├── db/seed.sql               # predefined users and posts
 ├── backend/
-│   ├── auth-service/         # login JWT + perfiles (schema auth)
+│   ├── auth-service/         # JWT login + profiles (schema auth)
 │   └── posts-service/        # posts + likes + WebSocket (schema posts)
-├── frontend/                 # Angular 19 + NgRx SignalStore + nginx
-└── INSTALACION.md / .pdf     # guía de instalación y explicación del proyecto
+└── frontend/                 # Angular 19 + NgRx SignalStore + nginx
 ```
 
-## Autor
+## Possible next steps
 
-Daniel Rodriguez — prueba técnica Full Stack para Periferia IT Group.
+Known trade-offs I would revisit before calling this production-ready: keyset
+pagination for the feed, broadcasting deletions over WebSocket so open feeds drop the
+card without a reload, a `UNIQUE` constraint on aliases, refresh tokens with a shorter
+access-token lifetime, rate limiting on login, and object storage for images.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+Built by **Daniel Rodriguez** ([GitHub](https://github.com/drodriguezj12) ·
+[LinkedIn](https://www.linkedin.com/in/daniel-rodriguez-b795a8406/)).

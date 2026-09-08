@@ -1,46 +1,61 @@
-# Pulse — Backend (microservicios Spring Boot)
+# Pulse — Backend (Spring Boot microservices)
 
-Dos microservicios independientes (build, Docker y tests propios). Java 21,
-Spring Boot 3.3, PostgreSQL 16 + Flyway, JWT HS256 compartido por configuración.
+Two independent services, each with its own build, Docker image, database schema and
+test suite. Java 21, Spring Boot 3.3, PostgreSQL 16 with Flyway, HS256 JWT shared
+through configuration.
 
-| Servicio | Puerto | Responsabilidad | Schema |
+| Service | Port | Responsibility | Schema |
 |---|---|---|---|
-| [`auth-service`](auth-service) | 8081 | Login JWT (POST + GET literal), perfil propio y perfiles de solo lectura | `auth` |
-| [`posts-service`](posts-service) | 8082 | Publicaciones, borrado propio, likes (stored procedures) y WebSocket | `posts` |
+| [`auth-service`](auth-service) | 8081 | JWT login, own profile (editable alias + avatar), read-only profiles of other users | `auth` |
+| [`posts-service`](posts-service) | 8082 | Posts with optional images, author-only deletion, likes via stored procedures, WebSocket broadcasting | `posts` |
 
-## Puntos clave
+## Highlights
 
-- **Stored procedures PL/pgSQL** (requisito): `sp_register_like` y `sp_remove_like`
-  son `PROCEDURE` reales invocadas con `CALL` desde Java (`CallableStatement`,
-  datasource con `escapeSyntaxCallMode=callIfNoReturn`); `sp_get_posts_with_likes`
-  es `FUNCTION RETURNS TABLE` para leer el feed. Ver
-  `posts-service/src/main/resources/db/migration/V2__create_procedures.sql`.
-- **Tiempo real**: cada like/unlike difunde `{postId, likeCount}` a `/topic/likes`
-  (STOMP sobre `/ws`).
-- **Seeder**: al arrancar, auth crea 5 usuarios (BCrypt) y posts una publicación por
-  usuario, con UUIDs fijos compartidos por convención (sin llamadas entre servicios).
-- **Calidad**: DTOs (records), Bean Validation, `@RestControllerAdvice` con error
-  consistente `{timestamp, status, error, message, path}`, logs de auditoría SLF4J
-  (login, creación, likes), Actuator (`/actuator/health`, `/actuator/metrics`),
-  Swagger UI en **`/docs`** de cada servicio.
+- **PL/pgSQL stored procedures.** `sp_register_like` and `sp_remove_like` are real
+  `PROCEDURE`s invoked with `CALL` from Java (`CallableStatement`, datasource with
+  `escapeSyntaxCallMode=callIfNoReturn` so the driver emits `CALL` instead of
+  `SELECT`); `sp_get_posts_with_likes` is a `FUNCTION RETURNS TABLE` that builds the
+  feed with like counts and `liked_by_me` in one round trip. See
+  `posts-service/src/main/resources/db/migration/`.
+- **Idempotent likes.** Composite primary key `(post_id, user_id)` plus
+  `ON CONFLICT DO NOTHING` inside the procedure: liking twice leaves one row and
+  returns the correct total.
+- **Real time.** Every like/unlike broadcasts `{postId, likeCount}` to `/topic/likes`,
+  and every new post broadcasts the full payload to `/topic/posts` (STOMP over `/ws`).
+- **No inter-service calls.** The JWT carries `sub`, `username` and `alias`; posts
+  store the author alias denormalized, and an alias change re-issues the token and
+  lazily syncs existing posts on the next feed load.
+- **Schema owned by Flyway.** `ddl-auto: validate` — Hibernate only checks that the
+  entities match; migrations are versioned in the repository, one history per service.
+- **Production hygiene.** Record DTOs (entities are never exposed), Bean Validation,
+  a `@RestControllerAdvice` returning a consistent
+  `{timestamp, status, error, message, path}` body, SLF4J audit logs for login, post
+  creation, likes and deletions, Actuator (`/actuator/health`, `/actuator/metrics`)
+  and Swagger UI at **`/docs`** on each service.
 
-## Ejecutar tests
+## Running the tests
 
-Desde cada servicio (`auth-service/` o `posts-service/`):
+From either service directory (`auth-service/` or `posts-service/`):
 
 ```bash
-mvn test     # unitarios — no requieren Docker
-mvn verify   # unitarios + integración (Testcontainers, requiere Docker)
+mvn test     # unit tests — no Docker needed
+mvn verify   # + integration tests (Testcontainers, requires a Docker daemon)
 ```
 
-Los tests de integración levantan un PostgreSQL 16 real y cubren: flujo de login,
-feed con publicaciones propias incluidas, **ejecución real de las
-procedures** (idempotencia verificada contra la BD) y recepción del broadcast en un
-cliente STOMP real.
+Integration tests boot the full Spring context against a real PostgreSQL 16 and cover
+the parts that mocks would only pretend to verify: the login and profile flows, the
+stored procedures executing for real (idempotency checked directly against the table),
+like counts accumulating across different users, the complete image lifecycle
+(multipart upload, public read, rejected content types), author-only deletion, and a
+real STOMP client that waits for the broadcast frames.
 
-## Build de imágenes
+H2 was deliberately avoided: it cannot execute PL/pgSQL, so a test suite built on it
+would skip the most important behaviour in the service.
 
-Cada servicio tiene Dockerfile multi-stage (Maven → JRE 21 alpine, usuario no root):
+## Building the images
+
+Each service has a multi-stage Dockerfile (Maven build → JRE 21 Alpine runtime, non-root
+user):
 
 ```bash
 docker build -t pulse-auth-service ./auth-service

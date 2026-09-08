@@ -1,64 +1,74 @@
 # Pulse — Frontend (Angular 19)
 
-SPA de la red social Pulse: login, perfil, feed con **likes en tiempo real** y
-creación de publicaciones. Diseño propio "señal en vivo": superficies oscuras
-neutras y un solo color de acento (rosa) reservado para el sistema de likes.
+The Pulse SPA: login, profile, a feed with **real-time likes and posts**, and post
+creation with images. Custom "live signal" design — dark glass surfaces over an aurora
+backdrop, with a single accent colour reserved for the like system, so the only thing
+that visibly moves is what just happened.
+
+> The user interface is written in Spanish; code, comments and docs are in English.
 
 ## Stack
 
-- **Angular 19** standalone components, TypeScript estricto, rutas lazy.
-- **NgRx SignalStore** (`@ngrx/signals`) como **singleton** (`providedIn: 'root'`):
-  - `AuthStore` — usuario, token JWT, estado de sesión (persistida en localStorage).
-  - `PostsStore` — feed, likes optimistas y eventos del WebSocket.
-  - Los componentes consumen **solo signals** (`store.posts()`, `auth.user()`, …).
-- **@stomp/rx-stomp** — suscripción a `/topic/likes`; cada broadcast entra al
-  `PostsStore` y el contador pulsa en pantalla sin recargar.
-- Interceptor HTTP que adjunta el JWT + guard de rutas (`authGuard`).
-- nginx en producción: sirve la SPA y hace proxy de `/auth`, `/users`, `/posts` y `/ws`.
+- **Angular 19** standalone components, strict TypeScript, lazy routes.
+- **NgRx SignalStore** (`@ngrx/signals`) as a **root singleton** (`providedIn: 'root'`):
+  - `AuthStore` — user, JWT, session state (persisted in `localStorage`).
+  - `PostsStore` — feed, optimistic likes, and incoming WebSocket events.
+  - Components read **signals only** (`store.posts()`, `auth.user()`, …), never raw
+    observables, so a single broadcast updates every view at once.
+- **@stomp/rx-stomp** — subscribes to `/topic/likes` and `/topic/posts`; each frame is
+  fed into `PostsStore`, which makes counters pulse and new posts slide in without a
+  reload. Reconnects on its own (`reconnectDelay: 3000`).
+- Functional HTTP interceptor that attaches the JWT and signs out globally on `401`,
+  plus route guards (`authGuard` / `anonymousGuard`).
+- nginx in production: serves the SPA and proxies `/auth`, `/users`, `/posts` and `/ws`
+  so the browser talks to a single origin.
 
-## Estructura
+## Structure
 
 ```
 src/app/
 ├── core/          # api services, interceptor, guards, ws.service, toasts, utils
 ├── stores/        # auth.store.ts · posts.store.ts (SignalStore, root singletons)
 ├── features/
-│   ├── login/     # formulario reactivo + chips de usuarios demo
-│   ├── feed/      # publicaciones de otros, like con burst + pulse en tiempo real
-│   ├── create-post/
-│   └── profile/
-└── shared/        # componente de toasts
+│   ├── login/     # reactive form + demo-user chips
+│   ├── feed/      # community feed, like burst, real-time pulse, author-only delete
+│   ├── create-post/  # message + optional image with preview
+│   └── profile/   # own profile (editable alias + avatar) and read-only profiles
+└── shared/        # avatar component with fallback, toasts
 ```
 
-## Desarrollo local
+## Local development
 
-Requiere los microservicios corriendo (por ejemplo `docker compose up` desde la raíz).
+Requires the microservices running (for example `docker compose up` from the repo
+root).
 
 ```bash
 npm install
-npm start          # ng serve con proxy (proxy.conf.json) hacia :8081/:8082
+npm start          # ng serve with proxy.conf.json pointing at :8081 / :8082
 ```
 
-Abre http://localhost:4200. El proxy evita CORS también en desarrollo.
+Open http://localhost:4200. The dev proxy avoids CORS in development too.
 
-## Tests unitarios
+## Unit tests
 
 ```bash
-npm test -- --watch=false --browsers=ChromeHeadless
+npm run test:ci
 ```
 
-17 specs (Karma + Jasmine): stores (feed, likes optimistas con reversión,
-eventos del WebSocket), guards de rutas, pipe de tiempo relativo y utilidades.
-Requiere un navegador Chromium; si Chrome no está en la ruta estándar, exporta
-`CHROME_BIN` apuntando a tu binario (Edge y Brave funcionan).
+22 Karma/Jasmine specs: stores (feed loading, optimistic likes with rollback on
+failure, WebSocket event sequencing, local removal after delete), route guards, the
+relative-time pipe and avatar utilities.
 
-## Build de producción
+Needs a Chromium browser. If Chrome is not on the default path, point `CHROME_BIN` at
+your binary (Edge and Brave work).
+
+## Production build
 
 ```bash
 npm run build      # dist/pulse/browser
 ```
 
-O con Docker (multi-stage: build Node → nginx):
+Or with Docker (multi-stage: Node build → nginx):
 
 ```bash
 docker build -t pulse-frontend .
