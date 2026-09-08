@@ -104,6 +104,20 @@
   background: color-mix(in oklch, var(--danger) 10%, transparent);
 }
 
+/* Pagination footer */
+.feed-more {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 1.5rem;
+}
+
+.feed-end {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.875rem;
+  padding: 0.5rem 0 1.5rem;
+}
+
 /* Skeletons */
 .sk-avatar { width: 2.5rem; height: 2.5rem; border-radius: 50%; }
 .sk-lines { display: grid; gap: 0.375rem; flex: 1; }

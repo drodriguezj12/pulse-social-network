@@ -5,8 +5,8 @@ import { LikeEvent, Post } from './models';
 
 /**
  * STOMP over WebSocket against posts-service (/ws, proxied by nginx or the
- * dev proxy). Subscribes to /topic/likes and feeds every broadcast into the
- * PostsStore, so like totals move on screen without reloading.
+ * dev proxy). Every broadcast is fed into the PostsStore, so like totals move,
+ * new posts slide in and deleted ones disappear without reloading.
  */
 @Injectable({ providedIn: 'root' })
 export class WsService {
@@ -38,6 +38,10 @@ export class WsService {
     this.rxStomp.watch('/topic/posts').subscribe(message => {
       const post = JSON.parse(message.body) as Post;
       this.postsStore.applyNewPost(post);
+    });
+    this.rxStomp.watch('/topic/posts-deleted').subscribe(message => {
+      const { postId } = JSON.parse(message.body) as { postId: string };
+      this.postsStore.applyDeletedPost(postId);
     });
 
     this.rxStomp.activate();

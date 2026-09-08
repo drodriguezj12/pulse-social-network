@@ -3,7 +3,13 @@ import { Component, computed, effect, input, signal } from '@angular/core';
 import { avatarStyle, initialOf } from '../core/avatar';
 
 /**
- * Profile picture with graceful fallback: tries GET /users/{id}/avatar and,
+ * Users without a picture are remembered here, so a feed showing twenty posts
+ * from five authors makes five avatar requests instead of twenty.
+ */
+const withoutAvatar = new Set<string>();
+
+/**
+ * Profile picture with a graceful fallback: it tries GET /users/{id}/avatar and,
  * when the user has no picture (404), shows the deterministic initial disc.
  * `bust` forces a fresh URL after the user changes their own picture.
  */
@@ -11,8 +17,8 @@ import { avatarStyle, initialOf } from '../core/avatar';
   selector: 'app-avatar',
   imports: [NgStyle],
   template: `
-    @if (!failed()) {
-      <img class="avatar-img" [src]="src()" [alt]="alias()" (error)="failed.set(true)" />
+    @if (showImage()) {
+      <img class="avatar-img" [src]="src()" [alt]="alias()" (error)="onError()" />
     } @else {
       <span class="avatar-fallback" [ngStyle]="fallbackStyle()">{{ initial() }}</span>
     }
@@ -41,8 +47,11 @@ export class AvatarComponent {
   readonly alias = input.required<string>();
   readonly bust = input<number | null>(null);
 
-  readonly failed = signal(false);
+  private readonly failed = signal(false);
 
+  readonly showImage = computed(() =>
+    !this.failed() && (this.bust() !== null || !withoutAvatar.has(this.userId())),
+  );
   readonly src = computed(() =>
     `/users/${this.userId()}/avatar${this.bust() ? `?v=${this.bust()}` : ''}`,
   );
@@ -50,11 +59,19 @@ export class AvatarComponent {
   readonly initial = computed(() => initialOf(this.alias()));
 
   constructor() {
-    // A new user or a fresh upload deserves a new attempt at loading the image.
+    // A different user, or a fresh upload, deserves a new attempt.
     effect(() => {
-      this.userId();
-      this.bust();
+      const id = this.userId();
+      const bust = this.bust();
+      if (bust !== null) {
+        withoutAvatar.delete(id);
+      }
       this.failed.set(false);
     });
+  }
+
+  onError(): void {
+    withoutAvatar.add(this.userId());
+    this.failed.set(true);
   }
 }

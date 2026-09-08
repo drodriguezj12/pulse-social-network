@@ -89,5 +89,25 @@
         </div>
       </article>
     }
+
+    @if (store.hasMore()) {
+      <div #sentinel class="feed-more">
+        <button
+          type="button"
+          class="btn btn-ghost"
+          (click)="loadMore()"
+          [disabled]="store.loadingMore()"
+        >
+          @if (store.loadingMore()) {
+            <span class="spinner" aria-hidden="true"></span>
+            Cargando…
+          } @else {
+            Cargar más publicaciones
+          }
+        </button>
+      </div>
+    } @else {
+      <p class="feed-end">Llegaste al final del feed.</p>
+    }
   }
 </section>

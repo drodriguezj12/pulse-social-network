@@ -9,6 +9,7 @@ import { UserProfile } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { AvatarComponent } from '../../shared/avatar.component';
 import { AuthStore } from '../../stores/auth.store';
+import { PostsStore } from '../../stores/posts.store';
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -25,6 +26,7 @@ export class ProfileComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toasts = inject(ToastService);
+  private readonly posts = inject(PostsStore);
 
   readonly editing = signal(false);
   readonly profile = signal<UserProfile | null>(null);
@@ -70,6 +72,9 @@ export class ProfileComponent implements OnInit {
     const { alias } = this.form.getRawValue();
     const saved = await this.auth.updateProfile(alias.trim());
     if (saved) {
+      // The alias is denormalized on posts-service; realign the existing posts
+      // now that the token carries the new one.
+      await this.posts.syncAuthorAlias();
       this.profile.set(this.auth.user());
       this.editing.set(false);
     }

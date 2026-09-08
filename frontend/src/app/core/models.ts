@@ -26,6 +26,12 @@ export interface Post {
   hasImage: boolean;
 }
 
+/** One page of the feed. `nextCursor` is null once the last page is reached. */
+export interface PostPage {
+  items: Post[];
+  nextCursor: string | null;
+}
+
 export interface LikeResponse {
   postId: string;
   likeCount: number;

@@ -1,15 +1,22 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { LikeResponse, Post } from '../models';
+import { LikeResponse, Post, PostPage } from '../models';
 
 /** posts-service endpoints (routed by nginx / dev proxy, same as AuthApiService). */
 @Injectable({ providedIn: 'root' })
 export class PostsApiService {
   private readonly http = inject(HttpClient);
 
-  feed(): Observable<Post[]> {
-    return this.http.get<Post[]>('/posts');
+  /**
+   * @param cursor `nextCursor` from the previous page, or null for the first one
+   */
+  feed(cursor: string | null = null, limit = 10): Observable<PostPage> {
+    let params = new HttpParams().set('limit', limit);
+    if (cursor) {
+      params = params.set('cursor', cursor);
+    }
+    return this.http.get<PostPage>('/posts', { params });
   }
 
   create(message: string, image?: File | null): Observable<Post> {
@@ -32,5 +39,10 @@ export class PostsApiService {
 
   delete(postId: string): Observable<void> {
     return this.http.delete<void>(`/posts/${postId}`);
+  }
+
+  /** Realigns the alias denormalized on the caller's posts after a rename. */
+  syncAuthorAlias(): Observable<void> {
+    return this.http.post<void>('/posts/author-alias', null);
   }
 }

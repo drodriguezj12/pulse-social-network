@@ -15,31 +15,39 @@ import { ToastService } from '../core/toast.service';
 interface PostsState {
   posts: Post[];
   loading: boolean;
+  loadingMore: boolean;
   creating: boolean;
   loaded: boolean;
+  /** Cursor for the next page; null once the whole feed has been read. */
+  nextCursor: string | null;
   /** Last WebSocket like event, sequenced so the feed can pulse the counter. */
   lastEvent: (LikeEvent & { seq: number }) | null;
   /** Last post that arrived over the WebSocket, so the feed can animate it in. */
   lastNewPost: { postId: string; seq: number } | null;
 }
 
+const PAGE_SIZE = 10;
+
 /**
  * Feed state as an NgRx SignalStore singleton (providedIn: 'root').
- * REST responses and WebSocket like events converge here; components
- * only read signals, so a broadcast updates every open screen at once.
+ * REST pages and WebSocket events converge here; components only read
+ * signals, so one broadcast updates every open screen at once.
  */
 export const PostsStore = signalStore(
   { providedIn: 'root' },
   withState<PostsState>({
     posts: [],
     loading: false,
+    loadingMore: false,
     creating: false,
     loaded: false,
+    nextCursor: null,
     lastEvent: null,
     lastNewPost: null,
   }),
-  withComputed(({ posts, loading, loaded }) => ({
+  withComputed(({ posts, loading, loaded, nextCursor }) => ({
     isEmpty: computed(() => loaded() && !loading() && posts().length === 0),
+    hasMore: computed(() => nextCursor() !== null),
   })),
   withMethods(store => {
     const api = inject(PostsApiService);
@@ -51,26 +59,42 @@ export const PostsStore = signalStore(
         posts: store.posts().map(p => (p.id === postId ? { ...p, ...patch } : p)),
       });
 
-    const mergeFeed = (remotePosts: Post[]) => {
-      const remoteIds = new Set(remotePosts.map(post => post.id));
-      return [
-        ...remotePosts,
-        ...store.posts().filter(post => !remoteIds.has(post.id)),
-      ].sort(
-        (a, b) =>
-          new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-      );
-    };
-
     return {
+      /** Loads the first page, replacing whatever the feed currently holds. */
       async loadFeed(): Promise<void> {
         patchState(store, { loading: true });
         try {
-          const posts = await firstValueFrom(api.feed());
-          patchState(store, { posts: mergeFeed(posts), loading: false, loaded: true });
+          const page = await firstValueFrom(api.feed(null, PAGE_SIZE));
+          patchState(store, {
+            posts: page.items,
+            nextCursor: page.nextCursor,
+            loading: false,
+            loaded: true,
+          });
         } catch (e) {
           patchState(store, { loading: false, loaded: true });
           toasts.error(httpMessage(e, 'No se pudieron cargar las publicaciones'));
+        }
+      },
+
+      /** Appends the next page. Safe to call repeatedly: it no-ops while busy. */
+      async loadMore(): Promise<void> {
+        const cursor = store.nextCursor();
+        if (!cursor || store.loadingMore() || store.loading()) {
+          return;
+        }
+        patchState(store, { loadingMore: true });
+        try {
+          const page = await firstValueFrom(api.feed(cursor, PAGE_SIZE));
+          const known = new Set(store.posts().map(p => p.id));
+          patchState(store, {
+            posts: [...store.posts(), ...page.items.filter(p => !known.has(p.id))],
+            nextCursor: page.nextCursor,
+            loadingMore: false,
+          });
+        } catch (e) {
+          patchState(store, { loadingMore: false });
+          toasts.error(httpMessage(e, 'No se pudieron cargar más publicaciones'));
         }
       },
 
@@ -110,14 +134,21 @@ export const PostsStore = signalStore(
       async deletePost(postId: string): Promise<boolean> {
         try {
           await firstValueFrom(api.delete(postId));
-          patchState(store, {
-            posts: store.posts().filter(post => post.id !== postId),
-          });
+          this.applyDeletedPost(postId);
           toasts.success('Publicación eliminada');
           return true;
         } catch (e) {
           toasts.error(httpMessage(e, 'No se pudo eliminar la publicación'));
           return false;
+        }
+      },
+
+      /** Called after renaming the profile, so old posts show the new alias. */
+      async syncAuthorAlias(): Promise<void> {
+        try {
+          await firstValueFrom(api.syncAuthorAlias());
+        } catch {
+          // Cosmetic: the next feed load will still show the new alias on new posts.
         }
       },
 
@@ -142,8 +173,21 @@ export const PostsStore = signalStore(
         });
       },
 
+      /** Entry point for WebSocket deletions: drop the card wherever it is open. */
+      applyDeletedPost(postId: string): void {
+        patchState(store, {
+          posts: store.posts().filter(post => post.id !== postId),
+        });
+      },
+
       reset(): void {
-        patchState(store, { posts: [], loaded: false, lastEvent: null, lastNewPost: null });
+        patchState(store, {
+          posts: [],
+          loaded: false,
+          nextCursor: null,
+          lastEvent: null,
+          lastNewPost: null,
+        });
       },
     };
   }),

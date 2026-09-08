@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { PostsApiService } from '../core/api/posts-api.service';
-import { LikeResponse, Post } from '../core/models';
+import { LikeResponse, Post, PostPage } from '../core/models';
 import { ToastService } from '../core/toast.service';
 import { PostsStore } from './posts.store';
 
@@ -22,8 +22,15 @@ describe('PostsStore', () => {
     hasImage: false,
   };
 
+  const page = (items: Post[], nextCursor: string | null = null): PostPage => ({
+    items,
+    nextCursor,
+  });
+
   beforeEach(() => {
-    api = jasmine.createSpyObj('PostsApiService', ['feed', 'create', 'like', 'unlike', 'delete']);
+    api = jasmine.createSpyObj('PostsApiService', [
+      'feed', 'create', 'like', 'unlike', 'delete', 'syncAuthorAlias',
+    ]);
     toasts = jasmine.createSpyObj('ToastService', ['success', 'error']);
     TestBed.configureTestingModule({
       providers: [
@@ -34,18 +41,53 @@ describe('PostsStore', () => {
     store = TestBed.inject(PostsStore);
   });
 
-  it('loadFeed stores the posts returned by the API', async () => {
-    api.feed.and.returnValue(of([post]));
+  it('loadFeed stores the first page returned by the API', async () => {
+    api.feed.and.returnValue(of(page([post])));
 
     await store.loadFeed();
 
     expect(store.posts()).toEqual([post]);
     expect(store.loading()).toBeFalse();
     expect(store.loaded()).toBeTrue();
+    expect(store.hasMore()).toBeFalse();
+  });
+
+  it('loadMore appends the next page and follows the cursor until it runs out', async () => {
+    const second: Post = { ...post, id: 'p2' };
+    api.feed.and.returnValue(of(page([post], 'cursor-1')));
+    await store.loadFeed();
+    expect(store.hasMore()).toBeTrue();
+
+    api.feed.and.returnValue(of(page([second])));
+    await store.loadMore();
+
+    expect(api.feed).toHaveBeenCalledWith('cursor-1', 10);
+    expect(store.posts().map(p => p.id)).toEqual(['p1', 'p2']);
+    expect(store.hasMore()).toBeFalse();
+  });
+
+  it('loadMore does nothing once the cursor is null', async () => {
+    api.feed.and.returnValue(of(page([post])));
+    await store.loadFeed();
+    api.feed.calls.reset();
+
+    await store.loadMore();
+
+    expect(api.feed).not.toHaveBeenCalled();
+  });
+
+  it('loadMore never duplicates a post already in the feed', async () => {
+    api.feed.and.returnValue(of(page([post], 'cursor-1')));
+    await store.loadFeed();
+
+    api.feed.and.returnValue(of(page([post, { ...post, id: 'p2' }])));
+    await store.loadMore();
+
+    expect(store.posts().map(p => p.id)).toEqual(['p1', 'p2']);
   });
 
   it('applyLikeEvent updates the matching post and sequences the event', async () => {
-    api.feed.and.returnValue(of([post]));
+    api.feed.and.returnValue(of(page([post])));
     await store.loadFeed();
 
     store.applyLikeEvent({ postId: 'p1', likeCount: 7 });
@@ -59,7 +101,7 @@ describe('PostsStore', () => {
   });
 
   it('toggleLike applies an optimistic update and reconciles with the server total', async () => {
-    api.feed.and.returnValue(of([post]));
+    api.feed.and.returnValue(of(page([post])));
     await store.loadFeed();
     const response: LikeResponse = { postId: 'p1', likeCount: 3, likedByMe: true };
     api.like.and.returnValue(of(response));
@@ -72,7 +114,7 @@ describe('PostsStore', () => {
   });
 
   it('toggleLike reverts the optimistic update when the API fails', async () => {
-    api.feed.and.returnValue(of([post]));
+    api.feed.and.returnValue(of(page([post])));
     await store.loadFeed();
     api.like.and.returnValue(
       throwError(() => new HttpErrorResponse({ status: 500 })),
@@ -86,7 +128,7 @@ describe('PostsStore', () => {
   });
 
   it('applyNewPost prepends the broadcast post and ignores duplicates', async () => {
-    api.feed.and.returnValue(of([post]));
+    api.feed.and.returnValue(of(page([post])));
     await store.loadFeed();
     const incoming: Post = { ...post, id: 'p2', message: 'nuevo en vivo' };
 
@@ -100,6 +142,15 @@ describe('PostsStore', () => {
     expect(store.posts().length).toBe(2);
   });
 
+  it('applyDeletedPost removes a post deleted somewhere else', async () => {
+    api.feed.and.returnValue(of(page([post, { ...post, id: 'p2' }])));
+    await store.loadFeed();
+
+    store.applyDeletedPost('p1');
+
+    expect(store.posts().map(p => p.id)).toEqual(['p2']);
+  });
+
   it('createPost reports success and failure through toasts', async () => {
     api.create.and.returnValue(of(post));
     expect(await store.createPost('hola')).toBeTrue();
@@ -111,7 +162,7 @@ describe('PostsStore', () => {
   });
 
   it('createPost prepends the created post returned by the API', async () => {
-    api.feed.and.returnValue(of([post]));
+    api.feed.and.returnValue(of(page([post])));
     await store.loadFeed();
     const created: Post = { ...post, id: 'p3', authorId: 'u1', message: 'mi post' };
     api.create.and.returnValue(of(created));
@@ -122,26 +173,8 @@ describe('PostsStore', () => {
     expect(store.lastNewPost()?.postId).toBe('p3');
   });
 
-  it('loadFeed keeps locally created posts that are missing from the API feed', async () => {
-    const olderPost: Post = { ...post, publishedAt: '2026-07-10T10:00:00.000Z' };
-    const created: Post = {
-      ...post,
-      id: 'p3',
-      authorId: 'u1',
-      message: 'mi post',
-      publishedAt: '2026-07-10T11:00:00.000Z',
-    };
-    api.create.and.returnValue(of(created));
-    await store.createPost('mi post');
-
-    api.feed.and.returnValue(of([olderPost]));
-    await store.loadFeed();
-
-    expect(store.posts().map(p => p.id)).toEqual(['p3', 'p1']);
-  });
-
   it('deletePost removes a deleted post from the feed', async () => {
-    api.feed.and.returnValue(of([post]));
+    api.feed.and.returnValue(of(page([post])));
     api.delete.and.returnValue(of(void 0));
     await store.loadFeed();
 
@@ -150,5 +183,14 @@ describe('PostsStore', () => {
     expect(api.delete).toHaveBeenCalledWith('p1');
     expect(store.posts()).toEqual([]);
     expect(toasts.success).toHaveBeenCalledWith('Publicación eliminada');
+  });
+
+  it('syncAuthorAlias swallows failures: it is a cosmetic follow-up', async () => {
+    api.syncAuthorAlias.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500 })),
+    );
+
+    await expectAsync(store.syncAuthorAlias()).toBeResolved();
+    expect(toasts.error).not.toHaveBeenCalled();
   });
 });
