@@ -1,0 +1,47 @@
+version: 2
+
+# Updates are grouped per ecosystem so the repository gets a handful of
+# reviewable pull requests a week instead of one per dependency.
+updates:
+  - package-ecosystem: maven
+    directory: /backend/auth-service
+    schedule:
+      interval: weekly
+    groups:
+      auth-service:
+        patterns: ["*"]
+
+  - package-ecosystem: maven
+    directory: /backend/posts-service
+    schedule:
+      interval: weekly
+    groups:
+      posts-service:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      frontend:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directories:
+      - /backend/auth-service
+      - /backend/posts-service
+      - /frontend
+    schedule:
+      interval: weekly
+    groups:
+      base-images:
+        patterns: ["*"]
