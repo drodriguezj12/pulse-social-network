@@ -42,13 +42,16 @@ SignalStore updates every open feed:
 - **Microservice boundaries that hold up.** Two services, two database schemas, zero
   runtime calls between them — identity travels inside a self-contained JWT.
 - **PostgreSQL beyond CRUD.** Real PL/pgSQL `PROCEDURE`s invoked with `CALL` from
-  JDBC, a set-returning `FUNCTION` for the feed, and idempotency enforced at the
-  database level.
-- **Real-time UX.** STOMP over WebSocket driving an NgRx SignalStore, with optimistic
-  updates reconciled against the server's authoritative count.
-- **Tests that prove the hard parts.** 74 tests, including integration tests that run
-  the stored procedures against a real PostgreSQL (Testcontainers) and a real STOMP
-  client that waits for the broadcast frame.
+  JDBC, a set-returning `FUNCTION` for the feed, keyset pagination on an index built
+  for it, and idempotency enforced at the database level.
+- **Real-time UX.** STOMP over WebSocket driving an NgRx SignalStore: likes, new posts
+  and deletions all land without a reload, with optimistic updates reconciled against
+  the server's authoritative count.
+- **Tests that prove the hard parts.** 95 tests, including integration tests that run
+  the stored procedures against a real PostgreSQL (Testcontainers) and real STOMP
+  clients that wait for the broadcast frames.
+- **Production hygiene.** Secrets with no committed fallback, a Content-Security-Policy
+  and the usual hardening headers, Prometheus metrics, grouped Dependabot updates.
 - **Reproducible delivery.** Multi-stage Docker images, health-gated Compose startup,
   Flyway-owned schema, CI on every push.
 
@@ -109,8 +112,10 @@ Stop everything with `docker compose down` (add `-v` to wipe the database).
 
 ### Demo users
 
-On startup, `auth-service` seeds five BCrypt users and `posts-service` one post each.
-The same data ships as a standalone script in [`db/seed.sql`](db/seed.sql).
+On startup the services seed a feed worth looking at: five BCrypt users (two with a
+profile picture), two dozen posts spread over the last few days, one of them
+illustrated, and fifty likes between them. The same data ships as a standalone script
+in [`db/seed.sql`](db/seed.sql).
 
 | Username | Password | Alias |
 |---|---|---|
@@ -143,6 +148,19 @@ One subtlety worth knowing: the PostgreSQL JDBC driver translates the `{call ...
 escape into `SELECT` by default, which fails against a procedure. The datasource URL
 carries `escapeSyntaxCallMode=callIfNoReturn` so the driver emits `CALL` instead.
 Integration tests execute the procedures for real, so this stays honest.
+
+### Keyset pagination instead of OFFSET
+
+`OFFSET` pagination degrades linearly — the database still walks and discards every
+skipped row — and it is unstable: posts published while someone reads shift the window,
+so items get duplicated or skipped between pages. The feed pages by cursor instead: the
+client sends back the `(published_at, id)` of the last post it received, and the query
+seeks straight to that position with a row-value comparison against an index built on
+the same sort key.
+
+The cursor travels as one opaque Base64 token rather than two query parameters, so
+clients just echo what the previous page returned and the sort key can change later
+without breaking the contract.
 
 ### Like idempotency, enforced twice
 
@@ -181,9 +199,23 @@ and the feed stay behind the JWT.
 ### Broadcast-only WebSocket
 
 The `/ws` handshake is open because the channel only *broadcasts* information any
-authenticated user already sees in the feed: like totals and new posts. Every mutation
-goes through REST with a JWT. Securing the handshake (token in the CONNECT frame)
-would be the hardening step if the channel ever carried private data.
+authenticated user already sees in the feed: like totals, new posts and deletions.
+Every mutation goes through REST with a JWT. Securing the handshake (token in the
+CONNECT frame) would be the hardening step if the channel ever carried private data.
+
+### No secret with a fallback
+
+Neither service defines a default `JWT_SECRET`: the application fails to start without
+one, so a deployment can never silently run on a value that is readable in this
+repository. The Compose file supplies a clearly-labelled local value so
+`docker compose up` still works for a demo out of the box.
+
+### An avatar for everyone
+
+`GET /users/{id}/avatar` never 404s for an existing user: when there is no uploaded
+picture it returns a generated SVG disc with the user's initial, coloured from a hash
+of their alias. Clients need no fallback branch, every `<img>` in the feed resolves,
+and the browser console stays clean.
 
 ### Separable monorepo
 
@@ -208,11 +240,13 @@ TOKEN=$(curl -s -X POST http://localhost:8081/auth/login -H "Content-Type: appli
 curl -s http://localhost:8081/users/me -H "Authorization: Bearer $TOKEN"
 curl -s http://localhost:8081/users/00000000-0000-0000-0000-000000000002 -H "Authorization: Bearer $TOKEN"
 
-# Edit alias (re-issues the JWT); username and real names are immutable
+# Edit alias (re-issues the JWT); username and real names are immutable.
+# Aliases are unique, case insensitively: a clash answers 409.
 curl -s -X PUT http://localhost:8081/users/me -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -d '{"alias":"mariana_live"}'
 
-# Upload an avatar (JPEG/PNG/WebP, max 2MB) and read it back (public, for img tags)
+# Upload an avatar (JPEG/PNG/WebP, max 2MB) and read it back. The read is public
+# (for img tags) and returns a generated SVG disc when there is no upload.
 curl -s -X PUT http://localhost:8081/users/me/avatar -H "Authorization: Bearer $TOKEN" \
   -F "image=@photo.png;type=image/png"
 curl -s http://localhost:8081/users/00000000-0000-0000-0000-000000000001/avatar -o avatar.png
@@ -225,8 +259,12 @@ in a URL leak into access logs, proxies and browser history.
 ### posts-service (`:8082`)
 
 ```bash
-# Feed, with like totals and whether the current user liked each post
-curl -s http://localhost:8082/posts -H "Authorization: Bearer $TOKEN"
+# Feed: one page of posts with like totals and whether the current user liked each.
+# Response: { "items": [...], "nextCursor": "…" | null }
+curl -s "http://localhost:8082/posts?limit=10" -H "Authorization: Bearer $TOKEN"
+
+# Next page: echo back the nextCursor from the previous response
+curl -s "http://localhost:8082/posts?limit=10&cursor=<nextCursor>" -H "Authorization: Bearer $TOKEN"
 
 # Create a post — publication date is assigned server-side on save
 curl -s -X POST http://localhost:8082/posts \
@@ -242,8 +280,11 @@ curl -s http://localhost:8082/posts/{postId}/image -o post.png
 curl -s -X POST   http://localhost:8082/posts/{postId}/likes -H "Authorization: Bearer $TOKEN"
 curl -s -X DELETE http://localhost:8082/posts/{postId}/likes -H "Authorization: Bearer $TOKEN"
 
-# Delete your own post (someone else's returns 403)
+# Delete your own post (someone else's returns 403); broadcast to every open feed
 curl -s -X DELETE http://localhost:8082/posts/{postId} -H "Authorization: Bearer $TOKEN"
+
+# After renaming yourself in auth-service, realign the alias denormalized on your posts
+curl -s -X POST http://localhost:8082/posts/author-alias -H "Authorization: Bearer $TOKEN"
 ```
 
 Both services return consistent errors through `@RestControllerAdvice`:
@@ -260,10 +301,11 @@ STOMP endpoint: `ws://localhost:8082/ws` (or `ws://localhost:4200/ws` through ng
 |---|---|---|
 | `/topic/likes` | `{ "postId": "…", "likeCount": 3 }` | Any like or unlike |
 | `/topic/posts` | the full `PostResponse` | A post is created |
+| `/topic/posts-deleted` | `{ "postId": "…" }` | A post is deleted |
 
 ## Tests
 
-74 tests in total: 20 backend unit tests, 32 backend integration tests and 22 frontend
+95 tests in total: 31 backend unit tests, 38 backend integration tests and 26 frontend
 specs.
 
 ```bash
@@ -277,8 +319,10 @@ npm run test:ci
 
 Integration tests cover the parts that would be dishonest to mock: Flyway migrations,
 the stored procedures executing for real (a like sent twice leaves exactly one row),
-like counts accumulating across different users, the full image lifecycle, author-only
-deletion, and STOMP clients that connect and wait for the actual broadcast frames.
+like counts accumulating across different users, cursor pagination walked page by page
+until the pages provably cover the whole feed without overlap, unique aliases under a
+case-insensitive index, the full image lifecycle, author-only deletion, and STOMP
+clients that connect and wait for the actual broadcast frames.
 
 Unit tests use Mockito against in-memory doubles; H2 was deliberately not used, since
 it cannot execute PL/pgSQL and a test that skips the procedures would prove nothing.
@@ -296,10 +340,11 @@ it cannot execute PL/pgSQL and a test that skips the procedures would prove noth
 
 ## Possible next steps
 
-Known trade-offs I would revisit before calling this production-ready: keyset
-pagination for the feed, broadcasting deletions over WebSocket so open feeds drop the
-card without a reload, a `UNIQUE` constraint on aliases, refresh tokens with a shorter
-access-token lifetime, rate limiting on login, and object storage for images.
+Known trade-offs I would revisit before calling this production-ready: refresh tokens
+with a shorter access-token lifetime, rate limiting on login, object storage for images
+once they outgrow a single database, validating uploaded images by their magic bytes
+and re-encoding them server-side (which also strips EXIF), and an external STOMP broker
+so broadcasts still reach everyone once the service runs as more than one instance.
 
 ## License
 

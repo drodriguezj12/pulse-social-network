@@ -14,24 +14,31 @@ through configuration.
 - **PL/pgSQL stored procedures.** `sp_register_like` and `sp_remove_like` are real
   `PROCEDURE`s invoked with `CALL` from Java (`CallableStatement`, datasource with
   `escapeSyntaxCallMode=callIfNoReturn` so the driver emits `CALL` instead of
-  `SELECT`); `sp_get_posts_with_likes` is a `FUNCTION RETURNS TABLE` that builds the
-  feed with like counts and `liked_by_me` in one round trip. See
+  `SELECT`); `sp_get_posts_with_likes` is a `FUNCTION RETURNS TABLE` that builds one
+  page of the feed with like counts and `liked_by_me` in a single round trip. See
   `posts-service/src/main/resources/db/migration/`.
+- **Keyset pagination.** The feed seeks by `(published_at, id)` against a matching
+  index instead of using `OFFSET`, so page ten costs the same as page one and
+  concurrent inserts never duplicate or skip a post. The cursor is an opaque token.
 - **Idempotent likes.** Composite primary key `(post_id, user_id)` plus
   `ON CONFLICT DO NOTHING` inside the procedure: liking twice leaves one row and
   returns the correct total.
 - **Real time.** Every like/unlike broadcasts `{postId, likeCount}` to `/topic/likes`,
-  and every new post broadcasts the full payload to `/topic/posts` (STOMP over `/ws`).
+  new posts go to `/topic/posts` and deletions to `/topic/posts-deleted` (STOMP over
+  `/ws`), so open feeds grow, shrink and update on their own.
 - **No inter-service calls.** The JWT carries `sub`, `username` and `alias`; posts
-  store the author alias denormalized, and an alias change re-issues the token and
-  lazily syncs existing posts on the next feed load.
+  store the author alias denormalized. Renaming re-issues the token, and the client
+  then calls `POST /posts/author-alias` so the write that realigns old posts happens
+  on a write path rather than on every feed read.
+- **Secrets without fallbacks.** `JWT_SECRET` has no default: the services refuse to
+  start without it, so no deployment can inherit a value committed to the repository.
 - **Schema owned by Flyway.** `ddl-auto: validate` — Hibernate only checks that the
   entities match; migrations are versioned in the repository, one history per service.
 - **Production hygiene.** Record DTOs (entities are never exposed), Bean Validation,
   a `@RestControllerAdvice` returning a consistent
   `{timestamp, status, error, message, path}` body, SLF4J audit logs for login, post
-  creation, likes and deletions, Actuator (`/actuator/health`, `/actuator/metrics`)
-  and Swagger UI at **`/docs`** on each service.
+  creation, likes and deletions, Actuator (`/actuator/health`, `/actuator/metrics`,
+  `/actuator/prometheus`) and Swagger UI at **`/docs`** on each service.
 
 ## Running the tests
 
