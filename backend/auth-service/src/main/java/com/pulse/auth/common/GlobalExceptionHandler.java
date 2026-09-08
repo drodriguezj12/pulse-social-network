@@ -3,6 +3,7 @@ package com.pulse.auth.common;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -64,6 +65,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleUploadTooLarge(MaxUploadSizeExceededException e,
                                                          HttpServletRequest request) {
         return build(HttpStatus.PAYLOAD_TOO_LARGE, "Image exceeds the 2MB limit", request);
+    }
+
+    /** Last line of defence for the unique-alias index under concurrent renames. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException e,
+                                                        HttpServletRequest request) {
+        log.warn("Constraint violation on {} {}: {}",
+                request.getMethod(), request.getRequestURI(), e.getMostSpecificCause().getMessage());
+        return build(HttpStatus.CONFLICT, "That value is already taken", request);
     }
 
     @ExceptionHandler(ResponseStatusException.class)

@@ -54,6 +54,7 @@ class UserServiceTest {
         UserEntity user = new UserEntity(
                 id, "daniela", "hash", "Daniela", "Mora", LocalDate.of(1996, 9, 30), "danim");
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.existsByAliasIgnoreCaseAndIdNot("dani_mora", id)).thenReturn(false);
         when(avatarRepository.existsById(id)).thenReturn(false);
 
         UserResponse updated = userService.updateProfile(id,
@@ -63,6 +64,23 @@ class UserServiceTest {
         assertThat(updated.lastName()).isEqualTo("Mora");
         assertThat(updated.username()).isEqualTo("daniela");
         assertThat(updated.alias()).isEqualTo("dani_mora");
+    }
+
+    @Test
+    @DisplayName("an alias another user already holds is rejected with 409")
+    void updateProfileRejectsTakenAlias() {
+        UUID id = UUID.randomUUID();
+        UserEntity user = new UserEntity(
+                id, "daniela", "hash", "Daniela", "Mora", LocalDate.of(1996, 9, 30), "danim");
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.existsByAliasIgnoreCaseAndIdNot("marilo", id)).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.updateProfile(id,
+                new com.pulse.auth.user.dto.UpdateProfileRequest("marilo")))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("already taken");
+
+        assertThat(user.getAlias()).isEqualTo("danim");   // unchanged
     }
 
     @Test

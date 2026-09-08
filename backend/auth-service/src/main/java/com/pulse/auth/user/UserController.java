@@ -85,12 +85,16 @@ public class UserController {
      */
     @GetMapping("/{userId}/avatar")
     @Operation(summary = "Get a user's profile picture (public)",
-            description = "Returns the image bytes, or 404 when the user has no picture.")
+            description = "Returns the uploaded picture, or a generated SVG disc with the user's "
+                    + "initial when they never uploaded one. 404 only if the user does not exist.")
     public ResponseEntity<byte[]> avatar(@PathVariable UUID userId) {
-        UserAvatarEntity avatar = userService.getAvatar(userId);
+        UserService.Avatar avatar = userService.getAvatar(userId);
+        // Uploaded pictures can be replaced, so they expire quickly; the generated
+        // disc only changes when the alias does, so it can be cached longer.
+        Duration maxAge = avatar.uploaded() ? Duration.ofMinutes(5) : Duration.ofHours(6);
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(avatar.getContentType()))
-                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)))
-                .body(avatar.getImage());
+                .contentType(MediaType.parseMediaType(avatar.contentType()))
+                .cacheControl(CacheControl.maxAge(maxAge))
+                .body(avatar.image());
     }
 }

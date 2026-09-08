@@ -13,12 +13,15 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import org.springframework.mock.web.MockMultipartFile;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -179,13 +182,48 @@ class AuthFlowIT extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("an alias another user already holds is rejected with 409")
+    void aliasMustBeUnique() throws Exception {
+        String token = loginAndGetToken("valentina");
+
+        mockMvc.perform(put("/users/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"alias\":\"MARILO\"}"))   // case-insensitive clash with mariana
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("That alias is already taken"));
+
+        mockMvc.perform(get("/users/me").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.alias").value("valen"));
+    }
+
+    @Test
+    @DisplayName("an alias with unsupported characters is rejected with 400")
+    void aliasFormatIsValidated() throws Exception {
+        String token = loginAndGetToken("valentina");
+
+        mockMvc.perform(put("/users/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"alias\":\"not valid!\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
     @DisplayName("avatar upload, public read and type validation work end to end")
     void avatarLifecycle() throws Exception {
         String token = loginAndGetToken("valentina");
         byte[] png = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, 1, 2, 3};
 
-        // before upload: 404 (frontend falls back to the initial disc)
+        // before any upload the endpoint still answers, with a generated disc
         mockMvc.perform(get("/users/00000000-0000-0000-0000-000000000003/avatar"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/svg+xml"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("<svg")));
+
+        // an unknown user is the only 404 case
+        mockMvc.perform(get("/users/" + UUID.randomUUID() + "/avatar"))
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(multipart("/users/me/avatar")

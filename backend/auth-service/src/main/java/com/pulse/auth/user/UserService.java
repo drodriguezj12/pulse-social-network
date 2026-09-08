@@ -6,9 +6,11 @@ import com.pulse.auth.user.dto.UpdateProfileRequest;
 import com.pulse.auth.user.dto.UserResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.Set;
@@ -42,7 +44,14 @@ public class UserService {
     public UserResponse updateProfile(UUID userId, UpdateProfileRequest request) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found"));
-        user.updateAlias(request.alias().trim());
+
+        String alias = request.alias().trim();
+        // Friendly answer for the common case; the unique index still guards the
+        // race between two people claiming the same alias at the same moment.
+        if (userRepository.existsByAliasIgnoreCaseAndIdNot(alias, userId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "That alias is already taken");
+        }
+        user.updateAlias(alias);
         log.info("AUDIT profile_updated userId={} username={}", userId, user.getUsername());
         return UserResponse.from(user, avatarRepository.existsById(userId));
     }
@@ -73,9 +82,24 @@ public class UserService {
                 userId, contentType, bytes.length);
     }
 
+    /**
+     * The uploaded picture when there is one, otherwise a generated disc with the
+     * user's initial. Callers always get an image, so no client needs a fallback.
+     *
+     * @throws NotFoundException when the user itself does not exist
+     */
     @Transactional(readOnly = true)
-    public UserAvatarEntity getAvatar(UUID userId) {
+    public Avatar getAvatar(UUID userId) {
         return avatarRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Avatar not found"));
+                .map(stored -> new Avatar(stored.getContentType(), stored.getImage(), true))
+                .orElseGet(() -> {
+                    UserEntity user = userRepository.findById(userId)
+                            .orElseThrow(() -> new NotFoundException("User not found"));
+                    return new Avatar("image/svg+xml", GeneratedAvatar.forAlias(user.getAlias()), false);
+                });
+    }
+
+    /** @param uploaded false when the bytes are the generated placeholder */
+    public record Avatar(String contentType, byte[] image, boolean uploaded) {
     }
 }
