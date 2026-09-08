@@ -1,15 +1,19 @@
 package com.pulse.auth.seed;
 
+import com.pulse.auth.user.UserAvatarEntity;
+import com.pulse.auth.user.UserAvatarRepository;
 import com.pulse.auth.user.UserEntity;
 import com.pulse.auth.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -28,10 +32,13 @@ public class DataSeeder implements ApplicationRunner {
     public static final String DEMO_PASSWORD = "Pulse2026!";
 
     private final UserRepository userRepository;
+    private final UserAvatarRepository avatarRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public DataSeeder(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public DataSeeder(UserRepository userRepository, UserAvatarRepository avatarRepository,
+                      PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.avatarRepository = avatarRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -57,11 +64,26 @@ public class DataSeeder implements ApplicationRunner {
                         "Daniela", "Mora", LocalDate.of(1996, 9, 30), "danim"));
 
         userRepository.saveAll(users);
+
+        // Two of them get a picture, so the feed shows both real avatars and the
+        // generated discs the other users fall back to.
+        seedAvatar("00000000-0000-0000-0000-000000000001", "seed/avatar-marilo.jpg");
+        seedAvatar("00000000-0000-0000-0000-000000000002", "seed/avatar-cgomez.jpg");
+
         log.info("AUDIT seed_completed users={} (password documented in README)", users.size());
     }
 
     private UserEntity user(String id, String username, String hash,
                             String firstName, String lastName, LocalDate birthDate, String alias) {
         return new UserEntity(UUID.fromString(id), username, hash, firstName, lastName, birthDate, alias);
+    }
+
+    private void seedAvatar(String userId, String resource) {
+        try {
+            byte[] image = new ClassPathResource(resource).getContentAsByteArray();
+            avatarRepository.save(new UserAvatarEntity(UUID.fromString(userId), "image/jpeg", image));
+        } catch (IOException e) {
+            log.warn("Demo avatar {} not seeded: {}", resource, e.getMessage());
+        }
     }
 }
