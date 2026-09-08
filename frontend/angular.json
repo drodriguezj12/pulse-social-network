@@ -63,6 +63,17 @@
           },
           "configurations": {
             "production": {
+              "optimization": {
+                "scripts": true,
+                "fonts": true,
+                "styles": {
+                  "minify": true,
+                  // Angular's critical-CSS inlining defers the stylesheet with an
+                  // inline onload handler, which our Content-Security-Policy blocks.
+                  // A plain <link> keeps the policy free of 'unsafe-inline' scripts.
+                  "inlineCritical": false
+                }
+              },
               "budgets": [
                 {
                   "type": "initial",

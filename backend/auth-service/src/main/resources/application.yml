@@ -28,7 +28,9 @@ security:
   jwt:
     # Shared with posts-service so it can validate tokens on its own.
     # Override in any non-local environment.
-    secret: ${JWT_SECRET:pulse-dev-secret-change-me-0123456789abcdef}
+    # Required on purpose — no fallback, so a deployment can never start with a
+    # secret that happens to be committed in this repository.
+    secret: ${JWT_SECRET}
     expiration-ms: ${JWT_EXPIRATION_MS:3600000}
 
 springdoc:
@@ -39,7 +41,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
