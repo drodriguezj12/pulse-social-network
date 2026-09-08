@@ -1,39 +1,46 @@
 version: 2
 
-# Updates are grouped per ecosystem so the repository gets a handful of
-# reviewable pull requests a week instead of one per dependency.
+# Policy for a project that is maintained deliberately rather than continuously:
+#
+#  * Monthly, grouped per ecosystem, so updates arrive as a couple of reviewable
+#    pull requests instead of a stream of noise.
+#  * Major versions are left out on purpose. Moving to a new Spring Boot, Angular
+#    or JDK line is a migration with its own testing, not something to merge from
+#    a bot; GitHub Actions are the exception, since their majors are routine and
+#    every one of them is validated by the pipeline they run in.
 updates:
   - package-ecosystem: maven
     directory: /backend/auth-service
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       auth-service:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: maven
     directory: /backend/posts-service
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       posts-service:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       frontend:
         patterns: ["*"]
-
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-    groups:
-      actions:
-        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directories:
@@ -41,7 +48,19 @@ updates:
       - /backend/posts-service
       - /frontend
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       base-images:
+        patterns: ["*"]
+    ignore:
+      # A new JDK or Node line changes the runtime the app was tested on.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
         patterns: ["*"]
