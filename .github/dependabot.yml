@@ -8,6 +8,8 @@ version: 2
 #    or JDK line is a migration with its own testing, not something to merge from
 #    a bot; GitHub Actions are the exception, since their majors are routine and
 #    every one of them is validated by the pipeline they run in.
+#  * A few dependencies are excluded outright: their real constraint is another
+#    project's release line, so semver alone does not say whether a bump is safe.
 updates:
   - package-ecosystem: maven
     directory: /backend/auth-service
@@ -41,6 +43,11 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Angular owns these through peer ranges: the 19 line requires
+      # typescript >=5.5 <5.9 and zone.js ~0.15, so a *minor* bump of either
+      # fails `npm ci` outright. They move when Angular moves.
+      - dependency-name: typescript
+      - dependency-name: zone.js
 
   - package-ecosystem: docker
     directories:
@@ -56,6 +63,10 @@ updates:
       # A new JDK or Node line changes the runtime the app was tested on.
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # The Maven image tag hides the JDK in its suffix, so
+      # 3.9.9-eclipse-temurin-21 -> 3.9.15-eclipse-temurin-26 reads as a minor
+      # bump while actually swapping the compiler. Pinned with the runtime image.
+      - dependency-name: maven
 
   - package-ecosystem: github-actions
     directory: /

@@ -1,7 +1,7 @@
 # Pulse — Backend (Spring Boot microservices)
 
 Two independent services, each with its own build, Docker image, database schema and
-test suite. Java 21, Spring Boot 3.3, PostgreSQL 16 with Flyway, HS256 JWT shared
+test suite. Java 21, Spring Boot 3.5, PostgreSQL 16 with Flyway, HS256 JWT shared
 through configuration.
 
 | Service | Port | Responsibility | Schema |

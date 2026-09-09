@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/drodriguezj12/pulse-social-network/actions/workflows/ci.yml/badge.svg)](https://github.com/drodriguezj12/pulse-social-network/actions/workflows/ci.yml)
 ![Java](https://img.shields.io/badge/Java-21-orange)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-6DB33F)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F)
 ![Angular](https://img.shields.io/badge/Angular-19-DD0031)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
 ![License](https://img.shields.io/badge/license-MIT-blue)
