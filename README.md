@@ -21,6 +21,10 @@ The whole stack — database, both services and the frontend — starts with a s
 
 ## See it running
 
+**[Watch the demo (90 seconds, no audio)](https://youtu.be/POKikhqDtYo)** — two
+sessions running side by side: signing in, publishing a post with an image, editing a
+profile, and a new post landing in the other browser on its own.
+
 **Two browsers, side by side.** The window on the right clicks the like; the counter
 on the left moves on its own. No polling, no reload — a STOMP frame lands and the
 SignalStore updates every open feed:
